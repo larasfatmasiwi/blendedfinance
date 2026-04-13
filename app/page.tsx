@@ -15,19 +15,19 @@ export default function RadarChartDashboard() {
   const [form, setForm] = useState({
     speed: 78,
     cost: 64,
-    local ownership: 71,
+    local_ownership: 71,
     scalability: 82,
-    capacity building: 69,
-    regulatory feasibility: 74,
+    capacity_building: 69,
+    regulatory_feasibility: 74,
   })
 
   const categories = [
-    { key: "environmental", label: "Environmental" },
-    { key: "social", label: "Social" },
-    { key: "governance", label: "Governance" },
-    { key: "finance", label: "Finance" },
-    { key: "operations", label: "Operations" },
-    { key: "innovation", label: "Innovation" },
+    { key: "speed", label: "Speed" },
+    { key: "cost", label: "Cost" },
+    { key: "local_ownership", label: "Local Ownership" },
+    { key: "scalability", label: "Scalability" },
+    { key: "capacity_building", label: "Capacity Building" },
+    { key: "regulatory_feasibility", label: "Regulatory Feasibility" },
   ]
 
   const data = useMemo(
@@ -52,12 +52,12 @@ export default function RadarChartDashboard() {
 
   const resetDemo = () => {
     setForm({
-      environmental: 78,
-      social: 64,
-      governance: 71,
-      finance: 82,
-      operations: 69,
-      innovation: 74,
+      speed: 78,
+      cost: 64,
+      local_ownership: 71,
+      scalability: 82,
+      capacity_building: 69,
+      regulatory_feasibility: 74,
     })
   }
 
