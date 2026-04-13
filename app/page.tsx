@@ -13,12 +13,12 @@ import {
 
 export default function RadarChartDashboard() {
   const [form, setForm] = useState({
-    environmental: 78,
-    social: 64,
-    governance: 71,
-    finance: 82,
-    operations: 69,
-    innovation: 74,
+    speed: 78,
+    cost: 64,
+    local ownership: 71,
+    scalability: 82,
+    capacity building: 69,
+    regulatory feasibility: 74,
   })
 
   const categories = [
