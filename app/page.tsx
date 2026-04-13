@@ -244,38 +244,57 @@ export default function GlobalExpansionDashboard() {
     }
   }
 
-  const updateStrategyScore = (strategyName: string, key: string, value: number) => {
-    if (uploadedData) {
-      setUploadedData((prev) => {
-        if (!prev) return prev
-        const updated = { ...prev }
-        if (updated[selectedCountry]) {
-          updated[selectedCountry] = updated[selectedCountry].map((s) =>
-            s.name === strategyName
-              ? { ...s, scores: { ...s.scores, [key]: value } }
-              : s
-          )
-        }
-        return updated
-      })
-    } else {
-      setStrategies((prev) =>
-        prev.map((s) =>
-          s.name === strategyName
-            ? { ...s, scores: { ...s.scores, [key]: value } }
-            : s
-        )
-      )
-    }
-  }
-
   const getRiskLabel = (score: number) => {
     if (score >= 7) return "High"
     if (score >= 5) return "Medium"
     return "Low"
   }
 
-  const activeStrategy = currentStrategies.find((s) => selectedStrategies.includes(s.name))
+  const downloadCSV = () => {
+    const headers = ["Country", "Strategy", "Speed", "Cost", "Local Ownership", "Scalability", "Capacity Building", "Regulatory Feasibility"]
+    const rows: string[][] = []
+    
+    if (uploadedData) {
+      Object.entries(uploadedData).forEach(([country, strategies]) => {
+        strategies.forEach((strategy) => {
+          rows.push([
+            country,
+            strategy.name,
+            String(strategy.scores.speed),
+            String(strategy.scores.cost),
+            String(strategy.scores.local_ownership),
+            String(strategy.scores.scalability),
+            String(strategy.scores.capacity_building),
+            String(strategy.scores.regulatory_feasibility),
+          ])
+        })
+      })
+    } else {
+      currentStrategies.forEach((strategy) => {
+        rows.push([
+          selectedCountry,
+          strategy.name,
+          String(strategy.scores.speed),
+          String(strategy.scores.cost),
+          String(strategy.scores.local_ownership),
+          String(strategy.scores.scalability),
+          String(strategy.scores.capacity_building),
+          String(strategy.scores.regulatory_feasibility),
+        ])
+      })
+    }
+    
+    const csvContent = [headers.join(","), ...rows.map((row) => row.join(","))].join("\n")
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+    const link = document.createElement("a")
+    const url = URL.createObjectURL(blob)
+    link.setAttribute("href", url)
+    link.setAttribute("download", `global_expansion_matrix_${selectedCountry.replace(/\s+/g, "_")}.csv`)
+    link.style.visibility = "hidden"
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 p-6 md:p-10">
@@ -306,6 +325,12 @@ export default function GlobalExpansionDashboard() {
               >
                 Upload Excel/CSV
               </label>
+              <button
+                onClick={downloadCSV}
+                className="rounded-2xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+              >
+                Download CSV
+              </button>
               {uploadedData && (
                 <button
                   onClick={clearUploadedData}
@@ -385,7 +410,7 @@ export default function GlobalExpansionDashboard() {
         </div>
 
         {/* Main Grid */}
-        <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
           {/* Radar Chart Section */}
           <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
             <div className="mb-4">
@@ -397,9 +422,9 @@ export default function GlobalExpansionDashboard() {
               </p>
             </div>
 
-            <div className="h-[420px] w-full">
+            <div className="h-[500px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <RadarChart outerRadius="65%" data={data}>
+                <RadarChart outerRadius="70%" data={data}>
                   <PolarGrid />
                   <PolarAngleAxis dataKey="subject" tick={{ fontSize: 11 }} />
                   <PolarRadiusAxis angle={90} domain={[0, 10]} tickCount={6} />
@@ -424,65 +449,10 @@ export default function GlobalExpansionDashboard() {
 
           {/* Right Column */}
           <div className="space-y-6">
-            {/* Dimension Input Panel */}
+            {/* Indicators Score */}
             <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
               <h2 className="text-xl font-semibold text-slate-900">
-                Dimension
-              </h2>
-              <p className="mt-1 text-sm text-slate-500">
-                Update each dimension for the selected strategy
-              </p>
-
-              {selectedStrategies.length === 1 && activeStrategy && (
-                <div className="mt-5 space-y-4">
-                  {categories.map((item) => (
-                    <div key={item.key} className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <label className="text-sm font-medium text-slate-700">
-                          {item.label}
-                        </label>
-                        <span className="text-sm text-slate-500">
-                          {activeStrategy.scores[item.key as keyof DimensionScores]}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="range"
-                          min="0"
-                          max="10"
-                          value={activeStrategy.scores[item.key as keyof DimensionScores]}
-                          onChange={(e) =>
-                            updateStrategyScore(activeStrategy.name, item.key, Number(e.target.value))
-                          }
-                          className="w-full"
-                        />
-                        <input
-                          type="number"
-                          min="0"
-                          max="10"
-                          value={activeStrategy.scores[item.key as keyof DimensionScores]}
-                          onChange={(e) =>
-                            updateStrategyScore(activeStrategy.name, item.key, Math.max(0, Math.min(10, Number(e.target.value) || 0)))
-                          }
-                          className="w-20 rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none ring-0"
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {selectedStrategies.length > 1 && (
-                <p className="mt-4 text-sm text-slate-500 italic">
-                  Select a single strategy to edit its dimensions.
-                </p>
-              )}
-            </div>
-
-            {/* Score Summary */}
-            <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-              <h2 className="text-xl font-semibold text-slate-900">
-                Score Summary
+                Indicators Score
               </h2>
               {selectedStrategies.map((strategyName) => {
                 const strategy = currentStrategies.find((s) => s.name === strategyName)
@@ -496,11 +466,11 @@ export default function GlobalExpansionDashboard() {
                       />
                       <span className="font-medium text-slate-700">{strategy.name}</span>
                     </div>
-                    <div className="grid gap-2 sm:grid-cols-2">
+                    <div className="flex flex-wrap gap-2">
                       {categories.map((item) => (
                         <div
                           key={item.key}
-                          className="rounded-xl border border-slate-200 p-3"
+                          className="rounded-xl border border-slate-200 p-3 min-w-[120px] flex-1"
                         >
                           <p className="text-xs text-slate-500">{item.label}</p>
                           <div className="mt-1 flex items-end justify-between">
