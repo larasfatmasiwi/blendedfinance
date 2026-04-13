@@ -227,7 +227,7 @@ export default function GlobalExpansionDashboard() {
 
       if (isExcel) {
         // Dynamic import xlsx library for Excel files
-        const XLSX = (await import("xlsx")).default
+        const XLSX = await import("xlsx")
         const arrayBuffer = await file.arrayBuffer()
         const workbook = XLSX.read(arrayBuffer, { type: "array" })
         const sheetName = workbook.SheetNames[0]
