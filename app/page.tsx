@@ -318,34 +318,62 @@ export default function GlobalExpansionDashboard() {
     document.body.removeChild(link)
   }
 
-  const downloadPDF = async () => {
+  const downloadPDF = () => {
     if (!reportRef.current) return
     
-    try {
-      const html2canvas = (await import("html2canvas")).default
-      const jsPDF = (await import("jspdf")).default
-      
-      const canvas = await html2canvas(reportRef.current, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-      })
-      
-      const imgData = canvas.toDataURL("image/png")
-      const pdf = new jsPDF("p", "mm", "a4")
-      const pdfWidth = pdf.internal.pageSize.getWidth()
-      const pdfHeight = pdf.internal.pageSize.getHeight()
-      const imgWidth = canvas.width
-      const imgHeight = canvas.height
-      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight)
-      const imgX = (pdfWidth - imgWidth * ratio) / 2
-      const imgY = 10
-      
-      pdf.addImage(imgData, "PNG", imgX, imgY, imgWidth * ratio, imgHeight * ratio)
-      pdf.save(`global_expansion_report_${selectedCountry.replace(/\s+/g, "_")}.pdf`)
-    } catch {
-      alert("Error generating PDF. Please try again.")
+    const printContents = reportRef.current.innerHTML
+    const printWindow = window.open("", "_blank")
+    if (!printWindow) {
+      alert("Please allow popups to download the report as PDF.")
+      return
     }
+    
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Global Expansion Report - ${selectedCountry}</title>
+          <style>
+            body { font-family: system-ui, -apple-system, sans-serif; padding: 20px; max-width: 900px; margin: 0 auto; }
+            h1, h2, h3 { color: #1e293b; }
+            .strategy-item { margin-bottom: 16px; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; }
+            .indicator-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+            .indicator-box { padding: 8px; background: #f8fafc; border-radius: 6px; }
+            .guidance-section { margin-top: 24px; padding: 16px; background: #f8fafc; border-radius: 8px; }
+            @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
+          </style>
+        </head>
+        <body>
+          <h1>Global Expansion Option Matrix Report</h1>
+          <h2>Country: ${selectedCountry}</h2>
+          <p>Generated on: ${new Date().toLocaleDateString()}</p>
+          <hr />
+          <h3>Selected Strategies</h3>
+          ${selectedStrategies.map((strategyName) => {
+            const strategy = currentStrategies.find((s) => s.name === strategyName)
+            if (!strategy) return ""
+            return `
+              <div class="strategy-item">
+                <h4 style="color: ${strategy.color}; margin: 0 0 8px 0;">${strategy.name}</h4>
+                <div class="indicator-grid">
+                  ${categories.map((item) => `
+                    <div class="indicator-box">
+                      <strong>${item.label}:</strong> ${strategy.scores[item.key as keyof DimensionScores]}/10
+                    </div>
+                  `).join("")}
+                </div>
+              </div>
+            `
+          }).join("")}
+          <div class="guidance-section">
+            <h3>Scoring Guide</h3>
+            <p><strong>1-2:</strong> Extremely unfavorable | <strong>3-4:</strong> Below average | <strong>5-6:</strong> Moderate | <strong>7-8:</strong> Favorable | <strong>9-10:</strong> Best-in-class</p>
+          </div>
+        </body>
+      </html>
+    `)
+    printWindow.document.close()
+    printWindow.print()
   }
 
   return (
