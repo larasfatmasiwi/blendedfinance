@@ -250,7 +250,25 @@ export default function GlobalExpansionDashboard() {
     return "Low"
   }
 
-  const downloadCSV = () => {
+  const generateExcelXML = (headers: string[], rows: string[][]) => {
+    const xmlHeader = `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+  <Worksheet ss:Name="Sheet1">
+    <Table>`
+    
+    const headerRow = `<Row>${headers.map(h => `<Cell><Data ss:Type="String">${h}</Data></Cell>`).join("")}</Row>`
+    const dataRows = rows.map(row => `<Row>${row.map(cell => `<Cell><Data ss:Type="${isNaN(Number(cell)) ? "String" : "Number"}">${cell}</Data></Cell>`).join("")}</Row>`).join("\n")
+    
+    const xmlFooter = `</Table>
+  </Worksheet>
+</Workbook>`
+    
+    return `${xmlHeader}\n${headerRow}\n${dataRows}\n${xmlFooter}`
+  }
+
+  const downloadExcel = () => {
     const headers = ["Country", "Strategy", "Speed", "Cost", "Local Ownership", "Scalability", "Capacity Building", "Regulatory Feasibility"]
     const rows: string[][] = []
     
@@ -284,12 +302,12 @@ export default function GlobalExpansionDashboard() {
       })
     }
     
-    const csvContent = [headers.join(","), ...rows.map((row) => row.join(","))].join("\n")
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+    const excelContent = generateExcelXML(headers, rows)
+    const blob = new Blob([excelContent], { type: "application/vnd.ms-excel" })
     const link = document.createElement("a")
     const url = URL.createObjectURL(blob)
     link.setAttribute("href", url)
-    link.setAttribute("download", `global_expansion_matrix_${selectedCountry.replace(/\s+/g, "_")}.csv`)
+    link.setAttribute("download", `global_expansion_matrix_${selectedCountry.replace(/\s+/g, "_")}.xls`)
     link.style.visibility = "hidden"
     document.body.appendChild(link)
     link.click()
@@ -306,22 +324,65 @@ export default function GlobalExpansionDashboard() {
       ["United States", "Hybrid", "7", "5", "6", "7", "6", "7"],
     ]
     
-    const csvContent = [headers.join(","), ...exampleRows.map((row) => row.join(","))].join("\n")
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+    const excelContent = generateExcelXML(headers, exampleRows)
+    const blob = new Blob([excelContent], { type: "application/vnd.ms-excel" })
     const link = document.createElement("a")
     const url = URL.createObjectURL(blob)
     link.setAttribute("href", url)
-    link.setAttribute("download", "global_expansion_template.csv")
+    link.setAttribute("download", "global_expansion_template.xls")
     link.style.visibility = "hidden"
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
   }
 
+  const generateSummaryAnalysis = () => {
+    const selectedStrategyData = currentStrategies.filter((s) => selectedStrategies.includes(s.name))
+    
+    // Calculate averages for each strategy
+    const strategyAverages = selectedStrategyData.map((strategy) => {
+      const scores = Object.values(strategy.scores)
+      const avg = scores.reduce((a, b) => a + b, 0) / scores.length
+      return { name: strategy.name, average: avg, scores: strategy.scores }
+    })
+    
+    // Find best strategy
+    const bestStrategy = strategyAverages.reduce((best, current) => 
+      current.average > best.average ? current : best, strategyAverages[0])
+    
+    // Find strengths and weaknesses for each strategy
+    const analysis = strategyAverages.map((strategy) => {
+      const sortedDimensions = categories.map((cat) => ({
+        label: cat.label,
+        score: strategy.scores[cat.key as keyof DimensionScores],
+      })).sort((a, b) => b.score - a.score)
+      
+      const strengths = sortedDimensions.slice(0, 2).filter((d) => d.score >= 7)
+      const weaknesses = sortedDimensions.slice(-2).filter((d) => d.score <= 4)
+      
+      return {
+        name: strategy.name,
+        average: strategy.average,
+        strengths,
+        weaknesses,
+      }
+    })
+    
+    return { bestStrategy, analysis }
+  }
+
   const downloadPDF = () => {
     if (!reportRef.current) return
     
-    const printContents = reportRef.current.innerHTML
+    const { bestStrategy, analysis } = generateSummaryAnalysis()
+    const chartSvg = reportRef.current.querySelector(".recharts-wrapper svg")
+    let chartDataUrl = ""
+    
+    if (chartSvg) {
+      const svgData = new XMLSerializer().serializeToString(chartSvg)
+      chartDataUrl = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)))
+    }
+    
     const printWindow = window.open("", "_blank")
     if (!printWindow) {
       alert("Please allow popups to download the report as PDF.")
@@ -334,40 +395,105 @@ export default function GlobalExpansionDashboard() {
         <head>
           <title>Global Expansion Report - ${selectedCountry}</title>
           <style>
-            body { font-family: system-ui, -apple-system, sans-serif; padding: 20px; max-width: 900px; margin: 0 auto; }
-            h1, h2, h3 { color: #1e293b; }
-            .strategy-item { margin-bottom: 16px; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; }
-            .indicator-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
-            .indicator-box { padding: 8px; background: #f8fafc; border-radius: 6px; }
-            .guidance-section { margin-top: 24px; padding: 16px; background: #f8fafc; border-radius: 8px; }
-            @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
+            body { font-family: system-ui, -apple-system, sans-serif; padding: 30px; max-width: 900px; margin: 0 auto; color: #1e293b; }
+            h1 { font-size: 28px; margin-bottom: 8px; }
+            h2 { font-size: 20px; color: #475569; margin-top: 32px; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }
+            h3 { font-size: 16px; color: #334155; }
+            .header { text-align: center; margin-bottom: 40px; }
+            .header p { color: #64748b; }
+            .chart-container { text-align: center; margin: 30px 0; padding: 20px; background: #f8fafc; border-radius: 12px; }
+            .chart-container img { max-width: 100%; height: auto; max-height: 400px; }
+            .summary-box { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 20px; margin: 24px 0; }
+            .summary-box h3 { color: #1e40af; margin: 0 0 12px 0; }
+            .strategy-item { margin-bottom: 20px; padding: 16px; border: 1px solid #e2e8f0; border-radius: 12px; background: white; }
+            .strategy-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+            .strategy-dot { width: 12px; height: 12px; border-radius: 50%; }
+            .indicator-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+            .indicator-box { padding: 10px; background: #f8fafc; border-radius: 8px; text-align: center; }
+            .indicator-box .label { font-size: 11px; color: #64748b; }
+            .indicator-box .score { font-size: 20px; font-weight: 600; color: #1e293b; }
+            .analysis-section { margin-top: 24px; }
+            .strength { color: #059669; }
+            .weakness { color: #dc2626; }
+            .guidance-section { margin-top: 32px; padding: 20px; background: #f8fafc; border-radius: 12px; }
+            .dimension-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 16px; }
+            .dimension-item { padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; background: white; }
+            .dimension-item h4 { margin: 0 0 8px 0; font-size: 14px; }
+            .dimension-item p { margin: 0; font-size: 12px; color: #64748b; }
+            @media print { 
+              body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+              .page-break { page-break-before: always; }
+            }
           </style>
         </head>
         <body>
-          <h1>Global Expansion Option Matrix Report</h1>
-          <h2>Country: ${selectedCountry}</h2>
-          <p>Generated on: ${new Date().toLocaleDateString()}</p>
-          <hr />
-          <h3>Selected Strategies</h3>
-          ${selectedStrategies.map((strategyName) => {
-            const strategy = currentStrategies.find((s) => s.name === strategyName)
+          <div class="header">
+            <h1>Global Expansion Option Matrix Report</h1>
+            <p><strong>Country:</strong> ${selectedCountry}</p>
+            <p><strong>Generated:</strong> ${new Date().toLocaleDateString()}</p>
+          </div>
+          
+          ${chartDataUrl ? `
+          <div class="chart-container">
+            <h2 style="border: none; margin-top: 0;">Strategy Comparison Chart</h2>
+            <img src="${chartDataUrl}" alt="Radar Chart" />
+          </div>
+          ` : ""}
+          
+          <div class="summary-box">
+            <h3>Executive Summary</h3>
+            <p>This analysis compares <strong>${selectedStrategies.length} expansion ${selectedStrategies.length === 1 ? "strategy" : "strategies"}</strong> for <strong>${selectedCountry}</strong>.</p>
+            ${bestStrategy ? `<p><strong>Recommended Strategy:</strong> ${bestStrategy.name} (Average Score: ${bestStrategy.average.toFixed(1)}/10)</p>` : ""}
+          </div>
+          
+          <h2>Strategy Analysis</h2>
+          ${analysis.map((strat) => {
+            const strategy = currentStrategies.find((s) => s.name === strat.name)
             if (!strategy) return ""
             return `
               <div class="strategy-item">
-                <h4 style="color: ${strategy.color}; margin: 0 0 8px 0;">${strategy.name}</h4>
+                <div class="strategy-header">
+                  <span class="strategy-dot" style="background-color: ${strategy.color};"></span>
+                  <h3 style="margin: 0;">${strategy.name}</h3>
+                  <span style="margin-left: auto; font-size: 14px; color: #64748b;">Avg: ${strat.average.toFixed(1)}/10</span>
+                </div>
                 <div class="indicator-grid">
                   ${categories.map((item) => `
                     <div class="indicator-box">
-                      <strong>${item.label}:</strong> ${strategy.scores[item.key as keyof DimensionScores]}/10
+                      <div class="label">${item.label}</div>
+                      <div class="score">${strategy.scores[item.key as keyof DimensionScores]}</div>
                     </div>
                   `).join("")}
+                </div>
+                <div class="analysis-section">
+                  ${strat.strengths.length > 0 ? `<p class="strength"><strong>Strengths:</strong> ${strat.strengths.map((s) => s.label).join(", ")}</p>` : ""}
+                  ${strat.weaknesses.length > 0 ? `<p class="weakness"><strong>Areas for Improvement:</strong> ${strat.weaknesses.map((w) => w.label).join(", ")}</p>` : ""}
                 </div>
               </div>
             `
           }).join("")}
+          
+          <div class="guidance-section page-break">
+            <h2 style="margin-top: 0; border: none;">Indicator Definitions</h2>
+            <div class="dimension-grid">
+              ${dimensionExplanations.map((dim) => `
+                <div class="dimension-item">
+                  <h4>${dim.title}</h4>
+                  <p>${dim.description}</p>
+                </div>
+              `).join("")}
+            </div>
+          </div>
+          
           <div class="guidance-section">
-            <h3>Scoring Guide</h3>
-            <p><strong>1-2:</strong> Extremely unfavorable | <strong>3-4:</strong> Below average | <strong>5-6:</strong> Moderate | <strong>7-8:</strong> Favorable | <strong>9-10:</strong> Best-in-class</p>
+            <h3>Scoring Scale Reference</h3>
+            <p style="margin: 12px 0; font-size: 13px;">
+              <strong>1-2:</strong> Extremely unfavorable | 
+              <strong>3-4:</strong> Below average | 
+              <strong>5-6:</strong> Moderate | 
+              <strong>7-8:</strong> Favorable | 
+              <strong>9-10:</strong> Best-in-class
+            </p>
           </div>
         </body>
       </html>
@@ -412,10 +538,10 @@ export default function GlobalExpansionDashboard() {
                 Download Template
               </button>
               <button
-                onClick={downloadCSV}
+                onClick={downloadExcel}
                 className="rounded-2xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
               >
-                Download CSV
+                Download Excel
               </button>
               <button
                 onClick={downloadPDF}
@@ -436,7 +562,7 @@ export default function GlobalExpansionDashboard() {
 
           {/* Upload Instructions */}
           <div className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
-            <p className="font-medium text-slate-700">CSV Format:</p>
+            <p className="font-medium text-slate-700">Excel Format:</p>
             <p className="mt-1 font-mono text-xs">
               Country, Strategy, Speed, Cost, Local Ownership, Scalability, Capacity Building, Regulatory Feasibility
             </p>
