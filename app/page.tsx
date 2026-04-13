@@ -176,63 +176,87 @@ export default function GlobalExpansionDashboard() {
     setSelectedStrategies(currentStrategies.map((s) => s.name))
   }
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const parseUploadedRows = (rows: string[][]) => {
+    const parsed: Record<string, WebStrategy[]> = {}
+    const colorMap: Record<string, string> = {
+      "Deepen Local": "#4f46e5",
+      "Local Repurposing": "#10b981",
+      "New Build": "#f59e0b",
+      "Local Hybrid": "#ec4899",
+      "Hybrid": "#8b5cf6",
+    }
+
+    // Skip header row and filter valid rows
+    const dataRows = rows.slice(1).filter((row) => row.length >= 8 && row[0])
+
+    dataRows.forEach((row) => {
+      const country = String(row[0]).trim()
+      const strategyName = String(row[1]).trim()
+      const scores: DimensionScores = {
+        speed: Number(row[2]) || 5,
+        cost: Number(row[3]) || 5,
+        local_ownership: Number(row[4]) || 5,
+        scalability: Number(row[5]) || 5,
+        capacity_building: Number(row[6]) || 5,
+        regulatory_feasibility: Number(row[7]) || 5,
+      }
+
+      if (!parsed[country]) {
+        parsed[country] = []
+      }
+
+      parsed[country].push({
+        name: strategyName,
+        color: colorMap[strategyName] || "#6b7280",
+        scores,
+      })
+    })
+
+    return parsed
+  }
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
 
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      try {
-        const text = e.target?.result as string
-        const rows = text.split("\n").map((row) => row.split(",").map((cell) => cell.trim()))
-        
-        // Expected format: Country, Strategy, Speed, Cost, Local Ownership, Scalability, Capacity Building, Regulatory Feasibility
-        const dataRows = rows.slice(1).filter((row) => row.length >= 8 && row[0])
+    const fileName = file.name.toLowerCase()
+    const isExcel = fileName.endsWith(".xlsx") || fileName.endsWith(".xls")
 
-        const parsed: Record<string, WebStrategy[]> = {}
-        const colorMap: Record<string, string> = {
-          "Deepen Local": "#4f46e5",
-          "Local Repurposing": "#10b981",
-          "New Build": "#f59e0b",
-          "Local Hybrid": "#ec4899",
-          "Hybrid": "#8b5cf6",
-        }
+    try {
+      let rows: string[][] = []
 
-        dataRows.forEach((row) => {
-          const country = row[0]
-          const strategyName = row[1]
-          const scores: DimensionScores = {
-            speed: Number(row[2]) || 5,
-            cost: Number(row[3]) || 5,
-            local_ownership: Number(row[4]) || 5,
-            scalability: Number(row[5]) || 5,
-            capacity_building: Number(row[6]) || 5,
-            regulatory_feasibility: Number(row[7]) || 5,
-          }
-
-          if (!parsed[country]) {
-            parsed[country] = []
-          }
-
-          parsed[country].push({
-            name: strategyName,
-            color: colorMap[strategyName] || "#6b7280",
-            scores,
-          })
-        })
-
-        setUploadedData(parsed)
-        const firstCountry = Object.keys(parsed)[0]
-        if (firstCountry) {
-          setSelectedCountry(firstCountry)
-          setSelectedStrategies([parsed[firstCountry][0]?.name || "Deepen Local"])
-        }
-        alert("Data uploaded successfully!")
-      } catch {
-        alert("Error parsing file. Please ensure it's a valid CSV format.")
+      if (isExcel) {
+        // Dynamic import xlsx library for Excel files
+        const XLSX = (await import("xlsx")).default
+        const arrayBuffer = await file.arrayBuffer()
+        const workbook = XLSX.read(arrayBuffer, { type: "array" })
+        const sheetName = workbook.SheetNames[0]
+        const sheet = workbook.Sheets[sheetName]
+        rows = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as string[][]
+      } else {
+        // CSV parsing
+        const text = await file.text()
+        rows = text.split("\n").map((row) => row.split(",").map((cell) => cell.trim()))
       }
+
+      const parsed = parseUploadedRows(rows)
+
+      if (Object.keys(parsed).length === 0) {
+        alert("No valid data found. Please check the file format.")
+        return
+      }
+
+      setUploadedData(parsed)
+      const firstCountry = Object.keys(parsed)[0]
+      if (firstCountry) {
+        setSelectedCountry(firstCountry)
+        setSelectedStrategies([parsed[firstCountry][0]?.name || "Deepen Local"])
+      }
+      alert("Data uploaded successfully!")
+    } catch (error) {
+      console.error("Upload error:", error)
+      alert("Error parsing file. Please ensure it's a valid Excel or CSV format.")
     }
-    reader.readAsText(file)
   }
 
   const clearUploadedData = () => {
