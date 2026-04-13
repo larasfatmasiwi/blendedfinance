@@ -274,27 +274,10 @@ export default function GlobalExpansionDashboard() {
     return "Low"
   }
 
-  const generateExcelXML = (headers: string[], rows: string[][]) => {
-    const xmlHeader = `<?xml version="1.0"?>
-<?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
-  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
-  <Worksheet ss:Name="Sheet1">
-    <Table>`
-    
-    const headerRow = `<Row>${headers.map(h => `<Cell><Data ss:Type="String">${h}</Data></Cell>`).join("")}</Row>`
-    const dataRows = rows.map(row => `<Row>${row.map(cell => `<Cell><Data ss:Type="${isNaN(Number(cell)) ? "String" : "Number"}">${cell}</Data></Cell>`).join("")}</Row>`).join("\n")
-    
-    const xmlFooter = `</Table>
-  </Worksheet>
-</Workbook>`
-    
-    return `${xmlHeader}\n${headerRow}\n${dataRows}\n${xmlFooter}`
-  }
-
-  const downloadExcel = () => {
+  const downloadExcel = async () => {
+    const XLSX = await import("xlsx")
     const headers = ["Country", "Strategy", "Speed", "Cost", "Local Ownership", "Scalability", "Capacity Building", "Regulatory Feasibility"]
-    const rows: string[][] = []
+    const rows: (string | number)[][] = []
     
     if (uploadedData) {
       Object.entries(uploadedData).forEach(([country, strats]) => {
@@ -302,12 +285,12 @@ export default function GlobalExpansionDashboard() {
           rows.push([
             country,
             strategy.name,
-            String(strategy.scores.speed),
-            String(strategy.scores.cost),
-            String(strategy.scores.local_ownership),
-            String(strategy.scores.scalability),
-            String(strategy.scores.capacity_building),
-            String(strategy.scores.regulatory_feasibility),
+            strategy.scores.speed,
+            strategy.scores.cost,
+            strategy.scores.local_ownership,
+            strategy.scores.scalability,
+            strategy.scores.capacity_building,
+            strategy.scores.regulatory_feasibility,
           ])
         })
       })
@@ -316,48 +299,37 @@ export default function GlobalExpansionDashboard() {
         rows.push([
           selectedCountry,
           strategy.name,
-          String(strategy.scores.speed),
-          String(strategy.scores.cost),
-          String(strategy.scores.local_ownership),
-          String(strategy.scores.scalability),
-          String(strategy.scores.capacity_building),
-          String(strategy.scores.regulatory_feasibility),
+          strategy.scores.speed,
+          strategy.scores.cost,
+          strategy.scores.local_ownership,
+          strategy.scores.scalability,
+          strategy.scores.capacity_building,
+          strategy.scores.regulatory_feasibility,
         ])
       })
     }
     
-    const excelContent = generateExcelXML(headers, rows)
-    const blob = new Blob([excelContent], { type: "application/vnd.ms-excel" })
-    const link = document.createElement("a")
-    const url = URL.createObjectURL(blob)
-    link.setAttribute("href", url)
-    link.setAttribute("download", `global_expansion_matrix_${selectedCountry.replace(/\s+/g, "_")}.xls`)
-    link.style.visibility = "hidden"
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows])
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Data")
+    XLSX.writeFile(workbook, `global_expansion_matrix_${selectedCountry.replace(/\s+/g, "_")}.xlsx`)
   }
 
-  const downloadTemplate = () => {
+  const downloadTemplate = async () => {
+    const XLSX = await import("xlsx")
     const headers = ["Country", "Strategy", "Speed", "Cost", "Local Ownership", "Scalability", "Capacity Building", "Regulatory Feasibility"]
     const exampleRows = [
-      ["United States", "Deepen Local", "6", "7", "9", "4", "8", "7"],
-      ["United States", "Local Repurposing", "7", "8", "8", "5", "7", "6"],
-      ["United States", "New Build", "4", "3", "7", "8", "9", "5"],
-      ["United States", "Local Hybrid", "5", "6", "8", "6", "8", "6"],
-      ["United States", "Hybrid", "7", "5", "6", "7", "6", "7"],
+      ["United States", "Deepen Local", 6, 7, 9, 4, 8, 7],
+      ["United States", "Local Repurposing", 7, 8, 8, 5, 7, 6],
+      ["United States", "New Build", 4, 3, 7, 8, 9, 5],
+      ["United States", "Local Hybrid", 5, 6, 8, 6, 8, 6],
+      ["United States", "Hybrid", 7, 5, 6, 7, 6, 7],
     ]
     
-    const excelContent = generateExcelXML(headers, exampleRows)
-    const blob = new Blob([excelContent], { type: "application/vnd.ms-excel" })
-    const link = document.createElement("a")
-    const url = URL.createObjectURL(blob)
-    link.setAttribute("href", url)
-    link.setAttribute("download", "global_expansion_template.xls")
-    link.style.visibility = "hidden"
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    const worksheet = XLSX.utils.aoa_to_sheet([headers, ...exampleRows])
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Template")
+    XLSX.writeFile(workbook, "global_expansion_template.xlsx")
   }
 
   const generateSummaryAnalysis = () => {
