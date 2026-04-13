@@ -13,12 +13,12 @@ import {
 
 export default function RadarChartDashboard() {
   const [form, setForm] = useState({
-    speed: 78,
-    cost: 64,
-    local_ownership: 71,
-    scalability: 82,
-    capacity_building: 69,
-    regulatory_feasibility: 74,
+    speed: 8,
+    cost: 6,
+    local_ownership: 7,
+    scalability: 8,
+    capacity_building: 7,
+    regulatory_feasibility: 7,
   })
 
   const categories = [
@@ -35,7 +35,7 @@ export default function RadarChartDashboard() {
       categories.map((item) => ({
         subject: item.label,
         score: Number(form[item.key as keyof typeof form]) || 0,
-        fullMark: 100,
+        fullMark: 10,
       })),
     [form]
   )
@@ -46,24 +46,24 @@ export default function RadarChartDashboard() {
   }, [form])
 
   const handleChange = (key: string, value: string) => {
-    const numeric = Math.max(0, Math.min(100, Number(value) || 0))
+    const numeric = Math.max(0, Math.min(10, Number(value) || 0))
     setForm((prev) => ({ ...prev, [key]: numeric }))
   }
 
   const resetDemo = () => {
     setForm({
-      speed: 78,
-      cost: 64,
-      local_ownership: 71,
-      scalability: 82,
-      capacity_building: 69,
-      regulatory_feasibility: 74,
+      speed: 8,
+      cost: 6,
+      local_ownership: 7,
+      scalability: 8,
+      capacity_building: 7,
+      regulatory_feasibility: 7,
     })
   }
 
   const getRiskLabel = (score: number) => {
-    if (score >= 75) return "High"
-    if (score >= 50) return "Medium"
+    if (score >= 7) return "High"
+    if (score >= 5) return "Medium"
     return "Low"
   }
 
@@ -79,11 +79,6 @@ export default function RadarChartDashboard() {
               <h1 className="mt-2 text-3xl font-semibold text-slate-900">
                 Radar Chart Performance Dashboard
               </h1>
-              <p className="mt-2 max-w-2xl text-sm text-slate-600">
-                Enter values from 0 to 100 and the radar chart will update
-                automatically. You can adapt the labels for ESG, climate risk,
-                project evaluation, or any custom scoring model.
-              </p>
             </div>
             <button
               onClick={resetDemo}
@@ -120,7 +115,7 @@ export default function RadarChartDashboard() {
                 <RadarChart outerRadius="70%" data={data}>
                   <PolarGrid />
                   <PolarAngleAxis dataKey="subject" tick={{ fontSize: 12 }} />
-                  <PolarRadiusAxis angle={90} domain={[0, 100]} tickCount={6} />
+                  <PolarRadiusAxis angle={90} domain={[0, 10]} tickCount={6} />
                   <Tooltip />
                   <Radar name="Score" dataKey="score" fillOpacity={0.35} />
                 </RadarChart>
@@ -152,7 +147,7 @@ export default function RadarChartDashboard() {
                       <input
                         type="range"
                         min="0"
-                        max="100"
+                        max="10"
                         value={form[item.key as keyof typeof form]}
                         onChange={(e) => handleChange(item.key, e.target.value)}
                         className="w-full"
@@ -160,7 +155,7 @@ export default function RadarChartDashboard() {
                       <input
                         type="number"
                         min="0"
-                        max="100"
+                        max="10"
                         value={form[item.key as keyof typeof form]}
                         onChange={(e) => handleChange(item.key, e.target.value)}
                         className="w-20 rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none ring-0"
