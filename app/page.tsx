@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, useRef } from "react"
 import {
   Radar,
   RadarChart,
@@ -9,9 +9,10 @@ import {
   PolarRadiusAxis,
   ResponsiveContainer,
   Tooltip,
+  Legend,
 } from "recharts"
 
-type CountryData = {
+type DimensionScores = {
   speed: number
   cost: number
   local_ownership: number
@@ -20,90 +21,64 @@ type CountryData = {
   regulatory_feasibility: number
 }
 
-const countriesData: Record<string, CountryData> = {
-  "United States": {
-    speed: 9,
-    cost: 5,
-    local_ownership: 8,
-    scalability: 9,
-    capacity_building: 8,
-    regulatory_feasibility: 7,
-  },
-  "United Kingdom": {
-    speed: 8,
-    cost: 6,
-    local_ownership: 7,
-    scalability: 8,
-    capacity_building: 8,
-    regulatory_feasibility: 8,
-  },
-  Germany: {
-    speed: 7,
-    cost: 6,
-    local_ownership: 8,
-    scalability: 8,
-    capacity_building: 9,
-    regulatory_feasibility: 7,
-  },
-  Brazil: {
-    speed: 6,
-    cost: 7,
-    local_ownership: 8,
-    scalability: 7,
-    capacity_building: 6,
-    regulatory_feasibility: 5,
-  },
-  India: {
-    speed: 7,
-    cost: 8,
-    local_ownership: 7,
-    scalability: 9,
-    capacity_building: 7,
-    regulatory_feasibility: 6,
-  },
-  China: {
-    speed: 9,
-    cost: 7,
-    local_ownership: 6,
-    scalability: 10,
-    capacity_building: 8,
-    regulatory_feasibility: 5,
-  },
-  Japan: {
-    speed: 7,
-    cost: 5,
-    local_ownership: 9,
-    scalability: 7,
-    capacity_building: 9,
-    regulatory_feasibility: 8,
-  },
-  Australia: {
-    speed: 8,
-    cost: 5,
-    local_ownership: 8,
-    scalability: 7,
-    capacity_building: 8,
-    regulatory_feasibility: 9,
-  },
-  Nigeria: {
-    speed: 5,
-    cost: 8,
-    local_ownership: 9,
-    scalability: 6,
-    capacity_building: 5,
-    regulatory_feasibility: 4,
-  },
-  "South Africa": {
-    speed: 6,
-    cost: 7,
-    local_ownership: 8,
-    scalability: 6,
-    capacity_building: 6,
-    regulatory_feasibility: 6,
-  },
+type WebStrategy = {
+  name: string
+  color: string
+  scores: DimensionScores
 }
 
-const countries = Object.keys(countriesData)
+// All countries in the world
+const allCountries = [
+  "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda", "Argentina", "Armenia", "Australia", "Austria",
+  "Azerbaijan", "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus", "Belgium", "Belize", "Benin", "Bhutan",
+  "Bolivia", "Bosnia and Herzegovina", "Botswana", "Brazil", "Brunei", "Bulgaria", "Burkina Faso", "Burundi", "Cabo Verde", "Cambodia",
+  "Cameroon", "Canada", "Central African Republic", "Chad", "Chile", "China", "Colombia", "Comoros", "Congo (DRC)", "Congo (Republic)",
+  "Costa Rica", "Croatia", "Cuba", "Cyprus", "Czech Republic", "Denmark", "Djibouti", "Dominica", "Dominican Republic", "Ecuador",
+  "Egypt", "El Salvador", "Equatorial Guinea", "Eritrea", "Estonia", "Eswatini", "Ethiopia", "Fiji", "Finland", "France",
+  "Gabon", "Gambia", "Georgia", "Germany", "Ghana", "Greece", "Grenada", "Guatemala", "Guinea", "Guinea-Bissau",
+  "Guyana", "Haiti", "Honduras", "Hungary", "Iceland", "India", "Indonesia", "Iran", "Iraq", "Ireland",
+  "Israel", "Italy", "Ivory Coast", "Jamaica", "Japan", "Jordan", "Kazakhstan", "Kenya", "Kiribati", "Kosovo",
+  "Kuwait", "Kyrgyzstan", "Laos", "Latvia", "Lebanon", "Lesotho", "Liberia", "Libya", "Liechtenstein", "Lithuania",
+  "Luxembourg", "Madagascar", "Malawi", "Malaysia", "Maldives", "Mali", "Malta", "Marshall Islands", "Mauritania", "Mauritius",
+  "Mexico", "Micronesia", "Moldova", "Monaco", "Mongolia", "Montenegro", "Morocco", "Mozambique", "Myanmar", "Namibia",
+  "Nauru", "Nepal", "Netherlands", "New Zealand", "Nicaragua", "Niger", "Nigeria", "North Korea", "North Macedonia", "Norway",
+  "Oman", "Pakistan", "Palau", "Palestine", "Panama", "Papua New Guinea", "Paraguay", "Peru", "Philippines", "Poland",
+  "Portugal", "Qatar", "Romania", "Russia", "Rwanda", "Saint Kitts and Nevis", "Saint Lucia", "Saint Vincent and the Grenadines", "Samoa", "San Marino",
+  "Sao Tome and Principe", "Saudi Arabia", "Senegal", "Serbia", "Seychelles", "Sierra Leone", "Singapore", "Slovakia", "Slovenia", "Solomon Islands",
+  "Somalia", "South Africa", "South Korea", "South Sudan", "Spain", "Sri Lanka", "Sudan", "Suriname", "Sweden", "Switzerland",
+  "Syria", "Taiwan", "Tajikistan", "Tanzania", "Thailand", "Timor-Leste", "Togo", "Tonga", "Trinidad and Tobago", "Tunisia",
+  "Turkey", "Turkmenistan", "Tuvalu", "Uganda", "Ukraine", "United Arab Emirates", "United Kingdom", "United States", "Uruguay", "Uzbekistan",
+  "Vanuatu", "Vatican City", "Venezuela", "Vietnam", "Yemen", "Zambia", "Zimbabwe"
+]
+
+// Default strategies with their scores (these can be overridden by uploaded data)
+const defaultStrategies: WebStrategy[] = [
+  {
+    name: "Deepen Local",
+    color: "#4f46e5",
+    scores: { speed: 6, cost: 7, local_ownership: 9, scalability: 4, capacity_building: 8, regulatory_feasibility: 7 },
+  },
+  {
+    name: "Local Repurposing",
+    color: "#10b981",
+    scores: { speed: 7, cost: 8, local_ownership: 8, scalability: 5, capacity_building: 7, regulatory_feasibility: 6 },
+  },
+  {
+    name: "New Build",
+    color: "#f59e0b",
+    scores: { speed: 4, cost: 3, local_ownership: 7, scalability: 8, capacity_building: 9, regulatory_feasibility: 5 },
+  },
+  {
+    name: "Local Hybrid",
+    color: "#ec4899",
+    scores: { speed: 5, cost: 6, local_ownership: 8, scalability: 6, capacity_building: 8, regulatory_feasibility: 6 },
+  },
+  {
+    name: "Hybrid",
+    color: "#8b5cf6",
+    scores: { speed: 7, cost: 5, local_ownership: 6, scalability: 7, capacity_building: 6, regulatory_feasibility: 7 },
+  },
+]
 
 const categories = [
   { key: "speed", label: "Speed" },
@@ -162,41 +137,136 @@ const scoreScale = [
 
 export default function GlobalExpansionDashboard() {
   const [selectedCountry, setSelectedCountry] = useState("United States")
-  const [searchQuery, setSearchQuery] = useState("")
-  const [form, setForm] = useState<CountryData>(countriesData["United States"])
+  const [strategies, setStrategies] = useState<WebStrategy[]>(defaultStrategies)
+  const [selectedStrategies, setSelectedStrategies] = useState<string[]>(["Deepen Local"])
+  const [uploadedData, setUploadedData] = useState<Record<string, WebStrategy[]> | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const filteredCountries = countries.filter((country) =>
-    country.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const currentStrategies = useMemo(() => {
+    if (uploadedData && uploadedData[selectedCountry]) {
+      return uploadedData[selectedCountry]
+    }
+    return strategies
+  }, [uploadedData, selectedCountry, strategies])
 
-  const data = useMemo(
-    () =>
-      categories.map((item) => ({
-        subject: item.label,
-        score: Number(form[item.key as keyof typeof form]) || 0,
-        fullMark: 10,
-      })),
-    [form]
-  )
+  const data = useMemo(() => {
+    return categories.map((item) => {
+      const dataPoint: Record<string, string | number> = { subject: item.label }
+      currentStrategies.forEach((strategy) => {
+        if (selectedStrategies.includes(strategy.name)) {
+          dataPoint[strategy.name] = strategy.scores[item.key as keyof DimensionScores]
+        }
+      })
+      return dataPoint
+    })
+  }, [currentStrategies, selectedStrategies])
 
-  const overallScore = useMemo(() => {
-    const vals = Object.values(form).map((v) => Number(v) || 0)
-    return (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1)
-  }, [form])
-
-  const handleCountryChange = (country: string) => {
-    setSelectedCountry(country)
-    setForm(countriesData[country])
-    setSearchQuery("")
+  const toggleStrategy = (strategyName: string) => {
+    setSelectedStrategies((prev) => {
+      if (prev.includes(strategyName)) {
+        if (prev.length === 1) return prev // Keep at least one selected
+        return prev.filter((s) => s !== strategyName)
+      }
+      return [...prev, strategyName]
+    })
   }
 
-  const handleChange = (key: string, value: string) => {
-    const numeric = Math.max(0, Math.min(10, Number(value) || 0))
-    setForm((prev) => ({ ...prev, [key]: numeric }))
+  const selectAllStrategies = () => {
+    setSelectedStrategies(currentStrategies.map((s) => s.name))
   }
 
-  const resetToCountryDefaults = () => {
-    setForm(countriesData[selectedCountry])
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result as string
+        const rows = text.split("\n").map((row) => row.split(",").map((cell) => cell.trim()))
+        
+        // Expected format: Country, Strategy, Speed, Cost, Local Ownership, Scalability, Capacity Building, Regulatory Feasibility
+        const header = rows[0]
+        const dataRows = rows.slice(1).filter((row) => row.length >= 8 && row[0])
+
+        const parsed: Record<string, WebStrategy[]> = {}
+        const colorMap: Record<string, string> = {
+          "Deepen Local": "#4f46e5",
+          "Local Repurposing": "#10b981",
+          "New Build": "#f59e0b",
+          "Local Hybrid": "#ec4899",
+          "Hybrid": "#8b5cf6",
+        }
+
+        dataRows.forEach((row) => {
+          const country = row[0]
+          const strategyName = row[1]
+          const scores: DimensionScores = {
+            speed: Number(row[2]) || 5,
+            cost: Number(row[3]) || 5,
+            local_ownership: Number(row[4]) || 5,
+            scalability: Number(row[5]) || 5,
+            capacity_building: Number(row[6]) || 5,
+            regulatory_feasibility: Number(row[7]) || 5,
+          }
+
+          if (!parsed[country]) {
+            parsed[country] = []
+          }
+
+          parsed[country].push({
+            name: strategyName,
+            color: colorMap[strategyName] || "#6b7280",
+            scores,
+          })
+        })
+
+        setUploadedData(parsed)
+        const firstCountry = Object.keys(parsed)[0]
+        if (firstCountry) {
+          setSelectedCountry(firstCountry)
+          setSelectedStrategies([parsed[firstCountry][0]?.name || "Deepen Local"])
+        }
+        alert("Data uploaded successfully!")
+      } catch {
+        alert("Error parsing file. Please ensure it's a valid CSV format.")
+      }
+    }
+    reader.readAsText(file)
+  }
+
+  const clearUploadedData = () => {
+    setUploadedData(null)
+    setStrategies(defaultStrategies)
+    setSelectedStrategies(["Deepen Local"])
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
+    }
+  }
+
+  const updateStrategyScore = (strategyName: string, key: string, value: number) => {
+    if (uploadedData) {
+      setUploadedData((prev) => {
+        if (!prev) return prev
+        const updated = { ...prev }
+        if (updated[selectedCountry]) {
+          updated[selectedCountry] = updated[selectedCountry].map((s) =>
+            s.name === strategyName
+              ? { ...s, scores: { ...s.scores, [key]: value } }
+              : s
+          )
+        }
+        return updated
+      })
+    } else {
+      setStrategies((prev) =>
+        prev.map((s) =>
+          s.name === strategyName
+            ? { ...s, scores: { ...s.scores, [key]: value } }
+            : s
+        )
+      )
+    }
   }
 
   const getRiskLabel = (score: number) => {
@@ -204,6 +274,8 @@ export default function GlobalExpansionDashboard() {
     if (score >= 5) return "Medium"
     return "Low"
   }
+
+  const activeStrategy = currentStrategies.find((s) => selectedStrategies.includes(s.name))
 
   return (
     <div className="min-h-screen bg-slate-50 p-6 md:p-10">
@@ -219,12 +291,96 @@ export default function GlobalExpansionDashboard() {
                 Global Expansion Option Matrix
               </h1>
             </div>
+            <div className="flex flex-wrap gap-3">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,.xlsx,.xls"
+                onChange={handleFileUpload}
+                className="hidden"
+                id="file-upload"
+              />
+              <label
+                htmlFor="file-upload"
+                className="cursor-pointer rounded-2xl bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
+              >
+                Upload Excel/CSV
+              </label>
+              {uploadedData && (
+                <button
+                  onClick={clearUploadedData}
+                  className="rounded-2xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                >
+                  Clear Uploaded Data
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Upload Instructions */}
+          <div className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
+            <p className="font-medium text-slate-700">CSV Format:</p>
+            <p className="mt-1 font-mono text-xs">
+              Country, Strategy, Speed, Cost, Local Ownership, Scalability, Capacity Building, Regulatory Feasibility
+            </p>
+            <p className="mt-1 font-mono text-xs text-slate-500">
+              Example: United States, Deepen Local, 6, 7, 9, 4, 8, 7
+            </p>
+          </div>
+        </div>
+
+        {/* Country Selection */}
+        <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+          <h2 className="text-lg font-semibold text-slate-900 mb-4">Select Country</h2>
+          <select
+            value={selectedCountry}
+            onChange={(e) => setSelectedCountry(e.target.value)}
+            className="w-full md:w-96 rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-400"
+          >
+            {(uploadedData ? Object.keys(uploadedData) : allCountries).map((country) => (
+              <option key={country} value={country}>
+                {country}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Strategy Selection */}
+        <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
+            <h2 className="text-lg font-semibold text-slate-900">Select Strategies to Display</h2>
             <button
-              onClick={resetToCountryDefaults}
-              className="rounded-2xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+              onClick={selectAllStrategies}
+              className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
             >
-              Reset to Country Defaults
+              Show All
             </button>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            {currentStrategies.map((strategy) => (
+              <button
+                key={strategy.name}
+                onClick={() => toggleStrategy(strategy.name)}
+                className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition ${
+                  selectedStrategies.includes(strategy.name)
+                    ? "ring-2 ring-offset-2"
+                    : "opacity-50 hover:opacity-75"
+                }`}
+                style={{
+                  backgroundColor: selectedStrategies.includes(strategy.name)
+                    ? `${strategy.color}20`
+                    : "#f1f5f9",
+                  color: strategy.color,
+                  ringColor: strategy.color,
+                }}
+              >
+                <span
+                  className="h-3 w-3 rounded-full"
+                  style={{ backgroundColor: strategy.color }}
+                />
+                {strategy.name}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -232,69 +388,35 @@ export default function GlobalExpansionDashboard() {
         <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           {/* Radar Chart Section */}
           <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-            <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h2 className="text-xl font-semibold text-slate-900">
-                  {selectedCountry}
-                </h2>
-                <p className="text-sm text-slate-500">
-                  Dynamic visualization based on dimensions
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Search country..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-48 rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-400"
-                  />
-                  {searchQuery && filteredCountries.length > 0 && (
-                    <div className="absolute top-full left-0 z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">
-                      {filteredCountries.map((country) => (
-                        <button
-                          key={country}
-                          onClick={() => handleCountryChange(country)}
-                          className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-100"
-                        >
-                          {country}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <select
-                  value={selectedCountry}
-                  onChange={(e) => handleCountryChange(e.target.value)}
-                  className="rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-400"
-                >
-                  {countries.map((country) => (
-                    <option key={country} value={country}>
-                      {country}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="mb-4 rounded-2xl bg-slate-100 px-4 py-3">
-              <p className="text-xs uppercase tracking-wide text-slate-500">
-                Overall Score
-              </p>
-              <p className="text-2xl font-semibold text-slate-900">
-                {overallScore}
+            <div className="mb-4">
+              <h2 className="text-xl font-semibold text-slate-900">
+                {selectedCountry}
+              </h2>
+              <p className="text-sm text-slate-500">
+                Comparing {selectedStrategies.length} {selectedStrategies.length === 1 ? "strategy" : "strategies"}
               </p>
             </div>
 
-            <div className="h-[380px] w-full">
+            <div className="h-[420px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <RadarChart outerRadius="70%" data={data}>
+                <RadarChart outerRadius="65%" data={data}>
                   <PolarGrid />
-                  <PolarAngleAxis dataKey="subject" tick={{ fontSize: 12 }} />
+                  <PolarAngleAxis dataKey="subject" tick={{ fontSize: 11 }} />
                   <PolarRadiusAxis angle={90} domain={[0, 10]} tickCount={6} />
                   <Tooltip />
-                  <Radar name="Score" dataKey="score" fillOpacity={0.35} />
+                  <Legend />
+                  {currentStrategies
+                    .filter((s) => selectedStrategies.includes(s.name))
+                    .map((strategy) => (
+                      <Radar
+                        key={strategy.name}
+                        name={strategy.name}
+                        dataKey={strategy.name}
+                        stroke={strategy.color}
+                        fill={strategy.color}
+                        fillOpacity={0.25}
+                      />
+                    ))}
                 </RadarChart>
               </ResponsiveContainer>
             </div>
@@ -308,41 +430,53 @@ export default function GlobalExpansionDashboard() {
                 Dimension
               </h2>
               <p className="mt-1 text-sm text-slate-500">
-                Update each dimension manually
+                Update each dimension for the selected strategy
               </p>
 
-              <div className="mt-5 space-y-4">
-                {categories.map((item) => (
-                  <div key={item.key} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium text-slate-700">
-                        {item.label}
-                      </label>
-                      <span className="text-sm text-slate-500">
-                        {form[item.key as keyof typeof form]}
-                      </span>
+              {selectedStrategies.length === 1 && activeStrategy && (
+                <div className="mt-5 space-y-4">
+                  {categories.map((item) => (
+                    <div key={item.key} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm font-medium text-slate-700">
+                          {item.label}
+                        </label>
+                        <span className="text-sm text-slate-500">
+                          {activeStrategy.scores[item.key as keyof DimensionScores]}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="range"
+                          min="0"
+                          max="10"
+                          value={activeStrategy.scores[item.key as keyof DimensionScores]}
+                          onChange={(e) =>
+                            updateStrategyScore(activeStrategy.name, item.key, Number(e.target.value))
+                          }
+                          className="w-full"
+                        />
+                        <input
+                          type="number"
+                          min="0"
+                          max="10"
+                          value={activeStrategy.scores[item.key as keyof DimensionScores]}
+                          onChange={(e) =>
+                            updateStrategyScore(activeStrategy.name, item.key, Math.max(0, Math.min(10, Number(e.target.value) || 0)))
+                          }
+                          className="w-20 rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none ring-0"
+                        />
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="range"
-                        min="0"
-                        max="10"
-                        value={form[item.key as keyof typeof form]}
-                        onChange={(e) => handleChange(item.key, e.target.value)}
-                        className="w-full"
-                      />
-                      <input
-                        type="number"
-                        min="0"
-                        max="10"
-                        value={form[item.key as keyof typeof form]}
-                        onChange={(e) => handleChange(item.key, e.target.value)}
-                        className="w-20 rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none ring-0"
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
+
+              {selectedStrategies.length > 1 && (
+                <p className="mt-4 text-sm text-slate-500 italic">
+                  Select a single strategy to edit its dimensions.
+                </p>
+              )}
             </div>
 
             {/* Score Summary */}
@@ -350,24 +484,39 @@ export default function GlobalExpansionDashboard() {
               <h2 className="text-xl font-semibold text-slate-900">
                 Score Summary
               </h2>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                {categories.map((item) => (
-                  <div
-                    key={item.key}
-                    className="rounded-2xl border border-slate-200 p-4"
-                  >
-                    <p className="text-sm text-slate-500">{item.label}</p>
-                    <div className="mt-2 flex items-end justify-between">
-                      <p className="text-2xl font-semibold text-slate-900">
-                        {form[item.key as keyof typeof form]}
-                      </p>
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
-                        {getRiskLabel(form[item.key as keyof typeof form])}
-                      </span>
+              {selectedStrategies.map((strategyName) => {
+                const strategy = currentStrategies.find((s) => s.name === strategyName)
+                if (!strategy) return null
+                return (
+                  <div key={strategy.name} className="mt-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span
+                        className="h-3 w-3 rounded-full"
+                        style={{ backgroundColor: strategy.color }}
+                      />
+                      <span className="font-medium text-slate-700">{strategy.name}</span>
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {categories.map((item) => (
+                        <div
+                          key={item.key}
+                          className="rounded-xl border border-slate-200 p-3"
+                        >
+                          <p className="text-xs text-slate-500">{item.label}</p>
+                          <div className="mt-1 flex items-end justify-between">
+                            <p className="text-lg font-semibold text-slate-900">
+                              {strategy.scores[item.key as keyof DimensionScores]}
+                            </p>
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+                              {getRiskLabel(strategy.scores[item.key as keyof DimensionScores])}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                ))}
-              </div>
+                )
+              })}
             </div>
           </div>
         </div>
