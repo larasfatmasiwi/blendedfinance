@@ -11,6 +11,8 @@ import {
   Tooltip,
   Legend,
 } from "recharts"
+import jsPDF from "jspdf"
+import html2canvas from "html2canvas"
 
 type DimensionScores = {
   speed: number
@@ -141,6 +143,7 @@ export default function GlobalExpansionDashboard() {
   const [selectedStrategies, setSelectedStrategies] = useState<string[]>(["Deepen Local"])
   const [uploadedData, setUploadedData] = useState<Record<string, WebStrategy[]> | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const reportRef = useRef<HTMLDivElement>(null)
 
   const currentStrategies = useMemo(() => {
     if (uploadedData && uploadedData[selectedCountry]) {
@@ -186,7 +189,6 @@ export default function GlobalExpansionDashboard() {
         const rows = text.split("\n").map((row) => row.split(",").map((cell) => cell.trim()))
         
         // Expected format: Country, Strategy, Speed, Cost, Local Ownership, Scalability, Capacity Building, Regulatory Feasibility
-        const header = rows[0]
         const dataRows = rows.slice(1).filter((row) => row.length >= 8 && row[0])
 
         const parsed: Record<string, WebStrategy[]> = {}
@@ -255,8 +257,8 @@ export default function GlobalExpansionDashboard() {
     const rows: string[][] = []
     
     if (uploadedData) {
-      Object.entries(uploadedData).forEach(([country, strategies]) => {
-        strategies.forEach((strategy) => {
+      Object.entries(uploadedData).forEach(([country, strats]) => {
+        strats.forEach((strategy) => {
           rows.push([
             country,
             strategy.name,
@@ -296,6 +298,55 @@ export default function GlobalExpansionDashboard() {
     document.body.removeChild(link)
   }
 
+  const downloadTemplate = () => {
+    const headers = ["Country", "Strategy", "Speed", "Cost", "Local Ownership", "Scalability", "Capacity Building", "Regulatory Feasibility"]
+    const exampleRows = [
+      ["United States", "Deepen Local", "6", "7", "9", "4", "8", "7"],
+      ["United States", "Local Repurposing", "7", "8", "8", "5", "7", "6"],
+      ["United States", "New Build", "4", "3", "7", "8", "9", "5"],
+      ["United States", "Local Hybrid", "5", "6", "8", "6", "8", "6"],
+      ["United States", "Hybrid", "7", "5", "6", "7", "6", "7"],
+    ]
+    
+    const csvContent = [headers.join(","), ...exampleRows.map((row) => row.join(","))].join("\n")
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+    const link = document.createElement("a")
+    const url = URL.createObjectURL(blob)
+    link.setAttribute("href", url)
+    link.setAttribute("download", "global_expansion_template.csv")
+    link.style.visibility = "hidden"
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  const downloadPDF = async () => {
+    if (!reportRef.current) return
+    
+    try {
+      const canvas = await html2canvas(reportRef.current, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      })
+      
+      const imgData = canvas.toDataURL("image/png")
+      const pdf = new jsPDF("p", "mm", "a4")
+      const pdfWidth = pdf.internal.pageSize.getWidth()
+      const pdfHeight = pdf.internal.pageSize.getHeight()
+      const imgWidth = canvas.width
+      const imgHeight = canvas.height
+      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight)
+      const imgX = (pdfWidth - imgWidth * ratio) / 2
+      const imgY = 10
+      
+      pdf.addImage(imgData, "PNG", imgX, imgY, imgWidth * ratio, imgHeight * ratio)
+      pdf.save(`global_expansion_report_${selectedCountry.replace(/\s+/g, "_")}.pdf`)
+    } catch {
+      alert("Error generating PDF. Please try again.")
+    }
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 p-6 md:p-10">
       <div className="mx-auto max-w-7xl space-y-6">
@@ -326,10 +377,22 @@ export default function GlobalExpansionDashboard() {
                 Upload Excel/CSV
               </label>
               <button
+                onClick={downloadTemplate}
+                className="rounded-2xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+              >
+                Download Template
+              </button>
+              <button
                 onClick={downloadCSV}
                 className="rounded-2xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
               >
                 Download CSV
+              </button>
+              <button
+                onClick={downloadPDF}
+                className="rounded-2xl border border-indigo-500 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 transition hover:bg-indigo-100"
+              >
+                Download Report (PDF)
               </button>
               {uploadedData && (
                 <button
@@ -354,66 +417,71 @@ export default function GlobalExpansionDashboard() {
           </div>
         </div>
 
-        {/* Country Selection */}
+        {/* Country and Strategy Selection - Same Row */}
         <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-          <h2 className="text-lg font-semibold text-slate-900 mb-4">Select Country</h2>
-          <select
-            value={selectedCountry}
-            onChange={(e) => setSelectedCountry(e.target.value)}
-            className="w-full md:w-96 rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-400"
-          >
-            {(uploadedData ? Object.keys(uploadedData) : allCountries).map((country) => (
-              <option key={country} value={country}>
-                {country}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Strategy Selection */}
-        <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
-            <h2 className="text-lg font-semibold text-slate-900">Select Strategies to Display</h2>
-            <button
-              onClick={selectAllStrategies}
-              className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-            >
-              Show All
-            </button>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            {currentStrategies.map((strategy) => (
-              <button
-                key={strategy.name}
-                onClick={() => toggleStrategy(strategy.name)}
-                className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition ${
-                  selectedStrategies.includes(strategy.name)
-                    ? "ring-2 ring-offset-2"
-                    : "opacity-50 hover:opacity-75"
-                }`}
-                style={{
-                  backgroundColor: selectedStrategies.includes(strategy.name)
-                    ? `${strategy.color}20`
-                    : "#f1f5f9",
-                  color: strategy.color,
-                  ringColor: strategy.color,
-                }}
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
+            {/* Select Country */}
+            <div className="flex-shrink-0">
+              <h2 className="text-lg font-semibold text-slate-900 mb-3">Select Country</h2>
+              <select
+                value={selectedCountry}
+                onChange={(e) => setSelectedCountry(e.target.value)}
+                className="w-full lg:w-64 rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-400"
               >
-                <span
-                  className="h-3 w-3 rounded-full"
-                  style={{ backgroundColor: strategy.color }}
-                />
-                {strategy.name}
-              </button>
-            ))}
+                {(uploadedData ? Object.keys(uploadedData) : allCountries).map((country) => (
+                  <option key={country} value={country}>
+                    {country}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Select Strategies */}
+            <div className="flex-1">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-3">
+                <h2 className="text-lg font-semibold text-slate-900">Select Strategies to Display</h2>
+                <button
+                  onClick={selectAllStrategies}
+                  className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                >
+                  Show All
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                {currentStrategies.map((strategy) => (
+                  <button
+                    key={strategy.name}
+                    onClick={() => toggleStrategy(strategy.name)}
+                    className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition ${
+                      selectedStrategies.includes(strategy.name)
+                        ? "ring-2 ring-offset-2"
+                        : "opacity-50 hover:opacity-75"
+                    }`}
+                    style={{
+                      backgroundColor: selectedStrategies.includes(strategy.name)
+                        ? `${strategy.color}20`
+                        : "#f1f5f9",
+                      color: strategy.color,
+                      ringColor: strategy.color,
+                    }}
+                  >
+                    <span
+                      className="h-3 w-3 rounded-full"
+                      style={{ backgroundColor: strategy.color }}
+                    />
+                    {strategy.name}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Main Grid */}
-        <div className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
-          {/* Radar Chart Section */}
+        {/* Report Section for PDF */}
+        <div ref={reportRef} className="space-y-6 bg-slate-50">
+          {/* Radar Chart Section - Centered */}
           <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-            <div className="mb-4">
+            <div className="mb-4 text-center">
               <h2 className="text-xl font-semibold text-slate-900">
                 {selectedCountry}
               </h2>
@@ -422,7 +490,7 @@ export default function GlobalExpansionDashboard() {
               </p>
             </div>
 
-            <div className="h-[500px] w-full">
+            <div className="h-[500px] w-full flex items-center justify-center">
               <ResponsiveContainer width="100%" height="100%">
                 <RadarChart outerRadius="70%" data={data}>
                   <PolarGrid />
@@ -447,90 +515,90 @@ export default function GlobalExpansionDashboard() {
             </div>
           </div>
 
-          {/* Right Column */}
-          <div className="space-y-6">
-            {/* Indicators Score */}
-            <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-              <h2 className="text-xl font-semibold text-slate-900">
-                Indicators Score
-              </h2>
-              {selectedStrategies.map((strategyName) => {
-                const strategy = currentStrategies.find((s) => s.name === strategyName)
-                if (!strategy) return null
-                return (
-                  <div key={strategy.name} className="mt-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <span
-                        className="h-3 w-3 rounded-full"
-                        style={{ backgroundColor: strategy.color }}
-                      />
-                      <span className="font-medium text-slate-700">{strategy.name}</span>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {categories.map((item) => (
-                        <div
-                          key={item.key}
-                          className="rounded-xl border border-slate-200 p-3 min-w-[120px] flex-1"
-                        >
-                          <p className="text-xs text-slate-500">{item.label}</p>
-                          <div className="mt-1 flex items-end justify-between">
-                            <p className="text-lg font-semibold text-slate-900">
-                              {strategy.scores[item.key as keyof DimensionScores]}
-                            </p>
-                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
-                              {getRiskLabel(strategy.scores[item.key as keyof DimensionScores])}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+          {/* Indicators Score - Below Radar Chart */}
+          <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+            <h2 className="text-xl font-semibold text-slate-900 mb-4">
+              Indicators Score
+            </h2>
+            {selectedStrategies.map((strategyName) => {
+              const strategy = currentStrategies.find((s) => s.name === strategyName)
+              if (!strategy) return null
+              return (
+                <div key={strategy.name} className="mt-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span
+                      className="h-3 w-3 rounded-full"
+                      style={{ backgroundColor: strategy.color }}
+                    />
+                    <span className="font-medium text-slate-700">{strategy.name}</span>
                   </div>
-                )
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* Dimension Explanations */}
-        <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-          <h2 className="text-xl font-semibold text-slate-900 mb-4">
-            Global Expansion Indicators and Scales
-          </h2>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {dimensionExplanations.map((dim) => (
-              <div
-                key={dim.title}
-                className="rounded-2xl border border-slate-200 p-4"
-              >
-                <h3 className="font-semibold text-slate-900">{dim.title}</h3>
-                <p className="mt-2 text-sm text-slate-600">{dim.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Scoring System */}
-        <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-          <h2 className="text-xl font-semibold text-slate-900 mb-4">
-            Scoring System (1-10 Scale)
-          </h2>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            {scoreScale.map((item) => (
-              <div
-                key={item.score}
-                className="rounded-2xl border border-slate-200 p-3"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-sm font-semibold text-slate-900">
-                    {item.score}
-                  </span>
-                  <span className="text-sm font-medium text-slate-700">
-                    {item.label}
-                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    {categories.map((item) => (
+                      <div
+                        key={item.key}
+                        className="rounded-xl border border-slate-200 p-3 min-w-[140px] flex-1"
+                      >
+                        <p className="text-xs text-slate-500">{item.label}</p>
+                        <div className="mt-1 flex items-end justify-between">
+                          <p className="text-lg font-semibold text-slate-900">
+                            {strategy.scores[item.key as keyof DimensionScores]}
+                          </p>
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+                            {getRiskLabel(strategy.scores[item.key as keyof DimensionScores])}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <p className="mt-2 text-xs text-slate-500">{item.description}</p>
+              )
+            })}
+          </div>
+
+          {/* Guidance Section - Combined */}
+          <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+            <h2 className="text-xl font-semibold text-slate-900 mb-6">
+              Guidance
+            </h2>
+            
+            {/* Dimension Explanations */}
+            <div className="mb-8">
+              <h3 className="text-lg font-medium text-slate-800 mb-4">Global Expansion Indicators and Scales</h3>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {dimensionExplanations.map((dim) => (
+                  <div
+                    key={dim.title}
+                    className="rounded-2xl border border-slate-200 p-4"
+                  >
+                    <h4 className="font-semibold text-slate-900">{dim.title}</h4>
+                    <p className="mt-2 text-sm text-slate-600">{dim.description}</p>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
+
+            {/* Scoring System */}
+            <div>
+              <h3 className="text-lg font-medium text-slate-800 mb-4">Scoring System (1-10 Scale)</h3>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                {scoreScale.map((item) => (
+                  <div
+                    key={item.score}
+                    className="rounded-2xl border border-slate-200 p-3"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-sm font-semibold text-slate-900">
+                        {item.score}
+                      </span>
+                      <span className="text-sm font-medium text-slate-700">
+                        {item.label}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-xs text-slate-500">{item.description}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </div>
