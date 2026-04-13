@@ -11,8 +11,6 @@ import {
   Tooltip,
   Legend,
 } from "recharts"
-import jsPDF from "jspdf"
-import html2canvas from "html2canvas"
 
 type DimensionScores = {
   speed: number
@@ -324,6 +322,9 @@ export default function GlobalExpansionDashboard() {
     if (!reportRef.current) return
     
     try {
+      const html2canvas = (await import("html2canvas")).default
+      const jsPDF = (await import("jspdf")).default
+      
       const canvas = await html2canvas(reportRef.current, {
         scale: 2,
         useCORS: true,
