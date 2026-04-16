@@ -13,12 +13,13 @@ import {
 } from "recharts"
 
 type DimensionScores = {
-  speed: number
-  cost: number
-  local_ownership: number
-  scalability: number
-  capacity_building: number
-  regulatory_feasibility: number
+  barrier_fit: number
+  mobilization_potential: number
+  financial_additionality: number
+  development_additionality: number
+  concessionality_discipline: number
+  implementation_feasibility: number
+  results_impact_measurability: number
 }
 
 type WebStrategy = {
@@ -54,91 +55,102 @@ const allCountries = [
 // Default strategies with their scores (these can be overridden by uploaded data)
 const defaultStrategies: WebStrategy[] = [
   {
-    name: "Deepen Local",
+    name: "Technical assistance / grants",
     color: "#4f46e5",
-    scores: { speed: 6, cost: 7, local_ownership: 9, scalability: 4, capacity_building: 8, regulatory_feasibility: 7 },
+    scores: { barrier_fit: 8, mobilization_potential: 5, financial_additionality: 7, development_additionality: 9, concessionality_discipline: 6, implementation_feasibility: 8, results_impact_measurability: 7 },
   },
   {
-    name: "Local Repurposing",
+    name: "Guarantee / risk-sharing",
     color: "#10b981",
-    scores: { speed: 7, cost: 8, local_ownership: 8, scalability: 5, capacity_building: 7, regulatory_feasibility: 6 },
+    scores: { barrier_fit: 8, mobilization_potential: 9, financial_additionality: 8, development_additionality: 6, concessionality_discipline: 7, implementation_feasibility: 7, results_impact_measurability: 6 },
   },
   {
-    name: "New Build",
+    name: "First-loss / junior capital",
     color: "#f59e0b",
-    scores: { speed: 4, cost: 3, local_ownership: 7, scalability: 8, capacity_building: 9, regulatory_feasibility: 5 },
+    scores: { barrier_fit: 9, mobilization_potential: 9, financial_additionality: 9, development_additionality: 7, concessionality_discipline: 5, implementation_feasibility: 5, results_impact_measurability: 6 },
   },
   {
-    name: "Local Hybrid",
+    name: "Concessional loan",
     color: "#ec4899",
-    scores: { speed: 5, cost: 6, local_ownership: 8, scalability: 6, capacity_building: 8, regulatory_feasibility: 6 },
+    scores: { barrier_fit: 7, mobilization_potential: 7, financial_additionality: 7, development_additionality: 6, concessionality_discipline: 6, implementation_feasibility: 8, results_impact_measurability: 7 },
   },
   {
-    name: "Hybrid",
+    name: "Hedging / local-currency facility",
     color: "#8b5cf6",
-    scores: { speed: 7, cost: 5, local_ownership: 6, scalability: 7, capacity_building: 6, regulatory_feasibility: 7 },
+    scores: { barrier_fit: 8, mobilization_potential: 8, financial_additionality: 8, development_additionality: 6, concessionality_discipline: 7, implementation_feasibility: 6, results_impact_measurability: 7 },
+  },
+  {
+    name: "Outcome-based incentives",
+    color: "#0ea5e9",
+    scores: { barrier_fit: 7, mobilization_potential: 7, financial_additionality: 8, development_additionality: 8, concessionality_discipline: 7, implementation_feasibility: 5, results_impact_measurability: 9 },
   },
 ]
 
 const categories = [
-  { key: "speed", label: "Speed" },
-  { key: "cost", label: "Cost" },
-  { key: "local_ownership", label: "Local Ownership" },
-  { key: "scalability", label: "Scalability" },
-  { key: "capacity_building", label: "Capacity Building" },
-  { key: "regulatory_feasibility", label: "Regulatory Feasibility" },
+  { key: "barrier_fit", label: "Barrier fit" },
+  { key: "mobilization_potential", label: "Mobilization potential" },
+  { key: "financial_additionality", label: "Financial additionality" },
+  { key: "development_additionality", label: "Development additionality" },
+  { key: "concessionality_discipline", label: "Concessionality discipline" },
+  { key: "implementation_feasibility", label: "Implementation feasibility" },
+  { key: "results_impact_measurability", label: "Results / impact measurability" },
 ]
 
 const dimensionExplanations = [
   {
-    title: "Speed",
+    title: "Barrier fit",
     description:
-      "How quickly the model can be launched, staffed, governed, and made operational. A high score means faster execution and shorter time to implementation. A low score means slower setup due to institution-building, governance, or capability constraints.",
+      "How directly the tool responds to the diagnosed primary barrier.",
   },
   {
-    title: "Cost",
+    title: "Mobilization potential",
     description:
-      "Relative resource efficiency, including setup cost, operating cost, and infrastructure burden. A high score means lower cost burden or stronger cost-efficiency. A low score means a resource-heavy model requiring significant systems, people, or capital.",
+      "How strongly the tool can crowd in additional private or commercial capital.",
   },
   {
-    title: "Local Ownership",
+    title: "Financial additionality",
     description:
-      "The extent to which the model embeds local leadership, decision-making, legitimacy, and community agency. A high score means strong local agency and local control. A low score means heavier dependence on external organizations or Global North structures.",
+      "Whether the tool makes a transaction happen that otherwise would not happen, or happen at a worse scale/quality/tenor.",
   },
   {
-    title: "Scalability",
+    title: "Development additionality",
     description:
-      "Potential to replicate, expand geographically, and operate across larger volumes or more jurisdictions. A high score means the model is easier to expand or replicate. A low score means it is limited to one or a few jurisdictions or is difficult to scale operationally.",
+      "Whether the tool increases development value beyond pure financing.",
   },
   {
-    title: "Capacity Building",
+    title: "Concessionality discipline",
     description:
-      "Ability of the model to strengthen local institutional capability, talent, and long-term ecosystem development. A high score means strong knowledge transfer and durable capacity creation. A low score means limited local capability development beyond immediate operations.",
+      "Whether concessional support is minimal and well-targeted instead of over-subsidizing.",
   },
   {
-    title: "Regulatory Feasibility",
+    title: "Implementation feasibility",
     description:
-      "How workable the model is within legal, charitable, fiscal, and governance constraints in the target geography. A high score means it is easier to implement within existing rules and structures. A low score means it is more exposed to regulatory complexity or structural barriers.",
+      "How realistic the tool is to structure, approve, govern, and implement in the actual context.",
+  },
+  {
+    title: "Results / impact measurability",
+    description:
+      "How clearly outputs, outcomes, and downstream impacts can be measured.",
   },
 ]
 
 const scoreScale = [
-  { score: "1", label: "Extremely unfavorable", description: "Very poor fit on the indicator; major structural weakness." },
-  { score: "2", label: "Very unfavorable", description: "Only minimal strengths; severe limitations remain." },
-  { score: "3", label: "Unfavorable", description: "Below-average performance with clear constraints." },
-  { score: "4", label: "Moderately unfavorable", description: "Some usefulness, but notable weaknesses reduce attractiveness." },
-  { score: "5", label: "Neutral / mixed", description: "Middle-range position; neither clearly weak nor clearly strong." },
-  { score: "6", label: "Moderately favorable", description: "Useful and workable, though not yet a leading option." },
-  { score: "7", label: "Favorable", description: "Strong performance on the criterion in most practical cases." },
-  { score: "8", label: "Very favorable", description: "Highly attractive position with clear comparative advantage." },
-  { score: "9", label: "Exceptional", description: "One of the strongest options on this criterion." },
-  { score: "10", label: "Best-in-class", description: "Top-end performance; benchmark position within the option set." },
+  { score: "1", label: "Very poor fit", description: "Almost irrelevant on this indicator. The tool does not address the core need and is very unlikely to change the outcome materially." },
+  { score: "2", label: "Poor fit", description: "There is a slight theoretical connection, but the contribution would be very small and the mismatch is clear." },
+  { score: "3", label: "Weak", description: "There is limited relevance, but major weaknesses or trade-offs keep it below average." },
+  { score: "4", label: "Somewhat weak", description: "It can play a partial role, but only for certain sub-problems and with real limitations." },
+  { score: "5", label: "Moderate / neutral", description: "Reasonably suitable, but not distinctive. The tool could work, yet it has no clear advantage over alternatives." },
+  { score: "6", label: "Moderately strong", description: "Relevant and useful on this indicator, although not yet among the standout options." },
+  { score: "7", label: "Strong", description: "Clearly suitable and usually likely to work well in the relevant context." },
+  { score: "8", label: "Very strong", description: "High fit with a clear advantage over many alternatives." },
+  { score: "9", label: "Near-optimal", description: "Very close to best fit. Only minor caveats or implementation conditions remain." },
+  { score: "10", label: "Near-ideal / best fit", description: "The best-fitting option on this indicator. The tool is highly aligned with project needs and there is almost no stronger alternative on this dimension." },
 ]
 
 export default function GlobalExpansionDashboard() {
   const [selectedCountry, setSelectedCountry] = useState("United States")
   const [strategies, setStrategies] = useState<WebStrategy[]>(defaultStrategies)
-  const [selectedStrategies, setSelectedStrategies] = useState<string[]>(["Deepen Local"])
+  const [selectedStrategies, setSelectedStrategies] = useState<string[]>(["Technical assistance / grants"])
   const [uploadedData, setUploadedData] = useState<Record<string, WebStrategy[]> | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const reportRef = useRef<HTMLDivElement>(null)
@@ -179,26 +191,28 @@ export default function GlobalExpansionDashboard() {
   const parseUploadedRows = (rows: string[][]) => {
     const parsed: Record<string, WebStrategy[]> = {}
     const colorMap: Record<string, string> = {
-      "Deepen Local": "#4f46e5",
-      "Local Repurposing": "#10b981",
-      "New Build": "#f59e0b",
-      "Local Hybrid": "#ec4899",
-      "Hybrid": "#8b5cf6",
+      "Technical assistance / grants": "#4f46e5",
+      "Guarantee / risk-sharing": "#10b981",
+      "First-loss / junior capital": "#f59e0b",
+      "Concessional loan": "#ec4899",
+      "Hedging / local-currency facility": "#8b5cf6",
+      "Outcome-based incentives": "#0ea5e9",
     }
 
     // Skip header row and filter valid rows
-    const dataRows = rows.slice(1).filter((row) => row.length >= 8 && row[0])
+    const dataRows = rows.slice(1).filter((row) => row.length >= 9 && row[0])
 
     dataRows.forEach((row) => {
       const country = String(row[0]).trim()
       const strategyName = String(row[1]).trim()
       const scores: DimensionScores = {
-        speed: Number(row[2]) || 5,
-        cost: Number(row[3]) || 5,
-        local_ownership: Number(row[4]) || 5,
-        scalability: Number(row[5]) || 5,
-        capacity_building: Number(row[6]) || 5,
-        regulatory_feasibility: Number(row[7]) || 5,
+        barrier_fit: Number(row[2]) || 5,
+        mobilization_potential: Number(row[3]) || 5,
+        financial_additionality: Number(row[4]) || 5,
+        development_additionality: Number(row[5]) || 5,
+        concessionality_discipline: Number(row[6]) || 5,
+        implementation_feasibility: Number(row[7]) || 5,
+        results_impact_measurability: Number(row[8]) || 5,
       }
 
       if (!parsed[country]) {
@@ -250,7 +264,7 @@ export default function GlobalExpansionDashboard() {
       const firstCountry = Object.keys(parsed)[0]
       if (firstCountry) {
         setSelectedCountry(firstCountry)
-        setSelectedStrategies([parsed[firstCountry][0]?.name || "Deepen Local"])
+        setSelectedStrategies([parsed[firstCountry][0]?.name || "Technical assistance / grants"])
       }
       alert("Data uploaded successfully!")
     } catch (error) {
@@ -262,7 +276,7 @@ export default function GlobalExpansionDashboard() {
   const clearUploadedData = () => {
     setUploadedData(null)
     setStrategies(defaultStrategies)
-    setSelectedStrategies(["Deepen Local"])
+    setSelectedStrategies(["Technical assistance / grants"])
     if (fileInputRef.current) {
       fileInputRef.current.value = ""
     }
@@ -276,7 +290,7 @@ export default function GlobalExpansionDashboard() {
 
   const downloadExcel = async () => {
     const XLSX = await import("xlsx")
-    const headers = ["Country", "Strategy", "Speed", "Cost", "Local Ownership", "Scalability", "Capacity Building", "Regulatory Feasibility"]
+    const headers = ["Country", "Strategy", "Barrier fit", "Mobilization potential", "Financial additionality", "Development additionality", "Concessionality discipline", "Implementation feasibility", "Results / impact measurability"]
     const rows: (string | number)[][] = []
     
     if (uploadedData) {
@@ -285,12 +299,13 @@ export default function GlobalExpansionDashboard() {
           rows.push([
             country,
             strategy.name,
-            strategy.scores.speed,
-            strategy.scores.cost,
-            strategy.scores.local_ownership,
-            strategy.scores.scalability,
-            strategy.scores.capacity_building,
-            strategy.scores.regulatory_feasibility,
+            strategy.scores.barrier_fit,
+            strategy.scores.mobilization_potential,
+            strategy.scores.financial_additionality,
+            strategy.scores.development_additionality,
+            strategy.scores.concessionality_discipline,
+            strategy.scores.implementation_feasibility,
+            strategy.scores.results_impact_measurability,
           ])
         })
       })
@@ -299,12 +314,13 @@ export default function GlobalExpansionDashboard() {
         rows.push([
           selectedCountry,
           strategy.name,
-          strategy.scores.speed,
-          strategy.scores.cost,
-          strategy.scores.local_ownership,
-          strategy.scores.scalability,
-          strategy.scores.capacity_building,
-          strategy.scores.regulatory_feasibility,
+          strategy.scores.barrier_fit,
+          strategy.scores.mobilization_potential,
+          strategy.scores.financial_additionality,
+          strategy.scores.development_additionality,
+          strategy.scores.concessionality_discipline,
+          strategy.scores.implementation_feasibility,
+          strategy.scores.results_impact_measurability,
         ])
       })
     }
@@ -312,24 +328,25 @@ export default function GlobalExpansionDashboard() {
     const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows])
     const workbook = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(workbook, worksheet, "Data")
-    XLSX.writeFile(workbook, `global_expansion_matrix_${selectedCountry.replace(/\s+/g, "_")}.xlsx`)
+    XLSX.writeFile(workbook, `blended_finance_tools_matrix_${selectedCountry.replace(/\s+/g, "_")}.xlsx`)
   }
 
   const downloadTemplate = async () => {
     const XLSX = await import("xlsx")
-    const headers = ["Country", "Strategy", "Speed", "Cost", "Local Ownership", "Scalability", "Capacity Building", "Regulatory Feasibility"]
+    const headers = ["Country", "Strategy", "Barrier fit", "Mobilization potential", "Financial additionality", "Development additionality", "Concessionality discipline", "Implementation feasibility", "Results / impact measurability"]
     const exampleRows = [
-      ["United States", "Deepen Local", 6, 7, 9, 4, 8, 7],
-      ["United States", "Local Repurposing", 7, 8, 8, 5, 7, 6],
-      ["United States", "New Build", 4, 3, 7, 8, 9, 5],
-      ["United States", "Local Hybrid", 5, 6, 8, 6, 8, 6],
-      ["United States", "Hybrid", 7, 5, 6, 7, 6, 7],
+      ["United States", "Technical assistance / grants", 8, 5, 7, 9, 6, 8, 7],
+      ["United States", "Guarantee / risk-sharing", 8, 9, 8, 6, 7, 7, 6],
+      ["United States", "First-loss / junior capital", 9, 9, 9, 7, 5, 5, 6],
+      ["United States", "Concessional loan", 7, 7, 7, 6, 6, 8, 7],
+      ["United States", "Hedging / local-currency facility", 8, 8, 8, 6, 7, 6, 7],
+      ["United States", "Outcome-based incentives", 7, 7, 8, 8, 7, 5, 9],
     ]
     
     const worksheet = XLSX.utils.aoa_to_sheet([headers, ...exampleRows])
     const workbook = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(workbook, worksheet, "Template")
-    XLSX.writeFile(workbook, "global_expansion_template.xlsx")
+    XLSX.writeFile(workbook, "blended_finance_tools_matrix_template.xlsx")
   }
 
   const generateSummaryAnalysis = () => {
@@ -389,7 +406,7 @@ export default function GlobalExpansionDashboard() {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Global Expansion Report - ${selectedCountry}</title>
+          <title>Blended Finance Tools Matrix Report - ${selectedCountry}</title>
           <style>
             body { font-family: system-ui, -apple-system, sans-serif; padding: 30px; max-width: 900px; margin: 0 auto; color: #1e293b; }
             h1 { font-size: 28px; margin-bottom: 8px; }
@@ -424,7 +441,7 @@ export default function GlobalExpansionDashboard() {
         </head>
         <body>
           <div class="header">
-            <h1>Global Expansion Option Matrix Report</h1>
+            <h1>Blended Finance Tools Matrix Report</h1>
             <p><strong>Country:</strong> ${selectedCountry}</p>
             <p><strong>Generated:</strong> ${new Date().toLocaleDateString()}</p>
           </div>
@@ -470,7 +487,7 @@ export default function GlobalExpansionDashboard() {
           }).join("")}
           
           <div class="guidance-section page-break">
-            <h2 style="margin-top: 0; border: none;">Indicator Definitions</h2>
+            <h2 style="margin-top: 0; border: none;">Blended Finance Tools Matrix</h2>
             <div class="dimension-grid">
               ${dimensionExplanations.map((dim) => `
                 <div class="dimension-item">
@@ -484,11 +501,11 @@ export default function GlobalExpansionDashboard() {
           <div class="guidance-section">
             <h3>Scoring Scale Reference</h3>
             <p style="margin: 12px 0; font-size: 13px;">
-              <strong>1-2:</strong> Extremely unfavorable | 
-              <strong>3-4:</strong> Below average | 
-              <strong>5-6:</strong> Moderate | 
-              <strong>7-8:</strong> Favorable | 
-              <strong>9-10:</strong> Best-in-class
+              <strong>1-2:</strong> Very poor to poor fit | 
+              <strong>3-4:</strong> Weak fit | 
+              <strong>5-6:</strong> Moderate to moderately strong | 
+              <strong>7-8:</strong> Strong fit | 
+              <strong>9-10:</strong> Near-optimal to best fit
             </p>
           </div>
         </body>
@@ -509,7 +526,7 @@ export default function GlobalExpansionDashboard() {
                 Interactive Dashboard
               </p>
               <h1 className="mt-2 text-3xl font-semibold text-slate-900">
-                Global Expansion Option Matrix
+                Blended Finance Tools Matrix
               </h1>
             </div>
             <div className="flex flex-wrap gap-3">
@@ -560,10 +577,10 @@ export default function GlobalExpansionDashboard() {
           <div className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
             <p className="font-medium text-slate-700">Excel Format:</p>
             <p className="mt-1 font-mono text-xs">
-              Country, Strategy, Speed, Cost, Local Ownership, Scalability, Capacity Building, Regulatory Feasibility
+              Country, Strategy, Barrier fit, Mobilization potential, Financial additionality, Development additionality, Concessionality discipline, Implementation feasibility, Results / impact measurability
             </p>
             <p className="mt-1 font-mono text-xs text-slate-500">
-              Example: United States, Deepen Local, 6, 7, 9, 4, 8, 7
+              Example: United States, Technical assistance / grants, 8, 5, 7, 9, 6, 8, 7
             </p>
           </div>
         </div>
@@ -714,7 +731,7 @@ export default function GlobalExpansionDashboard() {
             
             {/* Dimension Explanations */}
             <div className="mb-8">
-              <h3 className="text-lg font-medium text-slate-800 mb-4">Global Expansion Indicators and Scales</h3>
+              <h3 className="text-lg font-medium text-slate-800 mb-4">Blended Finance Tools Matrix</h3>
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {dimensionExplanations.map((dim) => (
                   <div
