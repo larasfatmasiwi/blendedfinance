@@ -352,41 +352,26 @@ export default function GlobalExpansionDashboard() {
     }
   }
 
-  const generateCountryInsights = async () => {
-    if (!workbookContext) {
-      setInsightError("Please upload an Excel or CSV file first.")
-      return
+  const generateCountryInsights = async (): Promise<CountryInsightResult | null> => {
+    if (!workbookContext) return null
+
+    const response = await fetch("/api/generate-country-insights", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        country: selectedCountry,
+        prebuiltWorkbookContext: workbookContext,
+      }),
+    })
+
+    const payload = (await response.json()) as { insight?: CountryInsightResult; error?: string }
+    if (!response.ok || !payload.insight) {
+      throw new Error(payload.error ?? "Failed to generate insight.")
     }
 
-    setIsGeneratingInsight(true)
-    setInsightError(null)
-
-    try {
-      const response = await fetch("/api/generate-country-insights", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          country: selectedCountry,
-          prebuiltWorkbookContext: workbookContext,
-        }),
-      })
-
-      const payload = (await response.json()) as { insight?: CountryInsightResult; error?: string }
-      if (!response.ok || !payload.insight) {
-        throw new Error(payload.error ?? "Failed to generate insight.")
-      }
-
-      setAiInsight(payload.insight)
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "An unknown error occurred while generating insight."
-      setInsightError(message)
-      setAiInsight(null)
-    } finally {
-      setIsGeneratingInsight(false)
-    }
+    return payload.insight
   }
 
   const getRiskLabel = (score: number) => {
@@ -510,26 +495,42 @@ export default function GlobalExpansionDashboard() {
     return { bestStrategy, analysis }
   }
 
-  const downloadPDF = () => {
+  const downloadPDF = async () => {
     if (!reportRef.current) return
-    
-    const { bestStrategy, analysis } = generateSummaryAnalysis()
-    const countryInsight = uploadedInsights?.[selectedCountry]
-    const chartSvg = reportRef.current.querySelector(".recharts-wrapper svg")
-    let chartDataUrl = ""
-    
-    if (chartSvg) {
-      const svgData = new XMLSerializer().serializeToString(chartSvg)
-      chartDataUrl = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)))
-    }
-    
-    const printWindow = window.open("", "_blank")
-    if (!printWindow) {
-      alert("Please allow popups to download the report as PDF.")
-      return
-    }
-    
-    printWindow.document.write(`
+    setIsGeneratingInsight(true)
+    setInsightError(null)
+    try {
+      let generatedInsight: CountryInsightResult | null = null
+      if (workbookContext) {
+        try {
+          generatedInsight = await generateCountryInsights()
+          setAiInsight(generatedInsight)
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : "An unknown error occurred while generating insight."
+          setInsightError(message)
+          setAiInsight(null)
+        }
+      }
+
+      const { bestStrategy, analysis } = generateSummaryAnalysis()
+      const countryInsight = uploadedInsights?.[selectedCountry]
+      const executiveSummary = generatedInsight?.executive_summary
+      const chartSvg = reportRef.current.querySelector(".recharts-wrapper svg")
+      let chartDataUrl = ""
+      
+      if (chartSvg) {
+        const svgData = new XMLSerializer().serializeToString(chartSvg)
+        chartDataUrl = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)))
+      }
+      
+      const printWindow = window.open("", "_blank")
+      if (!printWindow) {
+        alert("Please allow popups to download the report as PDF.")
+        return
+      }
+      
+      printWindow.document.write(`
       <!DOCTYPE html>
       <html>
         <head>
@@ -582,7 +583,7 @@ export default function GlobalExpansionDashboard() {
           
           <div class="summary-box">
             <h3>Executive Summary</h3>
-            <p>This analysis compares <strong>${selectedStrategies.length} expansion ${selectedStrategies.length === 1 ? "strategy" : "strategies"}</strong> for <strong>${selectedCountry}</strong>.</p>
+            <p>${executiveSummary ?? `This analysis compares <strong>${selectedStrategies.length} expansion ${selectedStrategies.length === 1 ? "strategy" : "strategies"}</strong> for <strong>${selectedCountry}</strong>.`}</p>
             ${bestStrategy ? `<p><strong>Recommended Strategy:</strong> ${bestStrategy.name} (Average Score: ${bestStrategy.average.toFixed(1)}/10)</p>` : ""}
             ${countryInsight?.excelSummary ? `<p><strong>Excel Summary:</strong> ${countryInsight.excelSummary}</p>` : ""}
             ${countryInsight ? `
@@ -650,9 +651,12 @@ export default function GlobalExpansionDashboard() {
           </div>
         </body>
       </html>
-    `)
-    printWindow.document.close()
-    printWindow.print()
+      `)
+      printWindow.document.close()
+      printWindow.print()
+    } finally {
+      setIsGeneratingInsight(false)
+    }
   }
 
   return (
@@ -698,16 +702,10 @@ export default function GlobalExpansionDashboard() {
               </button>
               <button
                 onClick={downloadPDF}
-                className="rounded-2xl border border-indigo-500 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 transition hover:bg-indigo-100"
+                disabled={isGeneratingInsight}
+                className="rounded-2xl border border-indigo-500 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 transition hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Download Report (PDF)
-              </button>
-              <button
-                onClick={generateCountryInsights}
-                disabled={!workbookContext || isGeneratingInsight}
-                className="rounded-2xl border border-emerald-500 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isGeneratingInsight ? "Generating Insights..." : "Generate AI Insights"}
+                {isGeneratingInsight ? "Updating Executive Summary..." : "Download Report (PDF)"}
               </button>
               {uploadedData && (
                 <button
