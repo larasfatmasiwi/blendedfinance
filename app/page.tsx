@@ -168,6 +168,12 @@ export default function GlobalExpansionDashboard() {
   const [uploadedData, setUploadedData] = useState<Record<string, WebStrategy[]> | null>(null)
   const [uploadedInsights, setUploadedInsights] = useState<Record<string, CountryInsights> | null>(null)
   const [workbookContext, setWorkbookContext] = useState<WorkbookContext | null>(null)
+<<<<<<< codex/add-ai-insight-generation-feature-px5vkj
+=======
+  const [aiInsight, setAiInsight] = useState<CountryInsightResult | null>(null)
+  const [insightError, setInsightError] = useState<string | null>(null)
+  const [isGeneratingInsight, setIsGeneratingInsight] = useState(false)
+>>>>>>> dev
   const fileInputRef = useRef<HTMLInputElement>(null)
   const reportRef = useRef<HTMLDivElement>(null)
 
@@ -322,6 +328,11 @@ export default function GlobalExpansionDashboard() {
       setUploadedData(parsed)
       setUploadedInsights(Object.keys(parsedInsights).length > 0 ? parsedInsights : null)
       setWorkbookContext(parsedWorkbookContext)
+<<<<<<< codex/add-ai-insight-generation-feature-px5vkj
+=======
+      setAiInsight(null)
+      setInsightError(null)
+>>>>>>> dev
       const firstCountry = Object.keys(parsed)[0]
       if (firstCountry) {
         setSelectedCountry(firstCountry)
@@ -338,6 +349,11 @@ export default function GlobalExpansionDashboard() {
     setUploadedData(null)
     setUploadedInsights(null)
     setWorkbookContext(null)
+<<<<<<< codex/add-ai-insight-generation-feature-px5vkj
+=======
+    setAiInsight(null)
+    setInsightError(null)
+>>>>>>> dev
     setStrategies(defaultStrategies)
     setSelectedStrategies(["Technical assistance / grants"])
     if (fileInputRef.current) {
@@ -345,6 +361,7 @@ export default function GlobalExpansionDashboard() {
     }
   }
 
+<<<<<<< codex/add-ai-insight-generation-feature-px5vkj
   const fetchCountryInsights = async (): Promise<CountryInsightResult | null> => {
     if (!workbookContext) return null
 
@@ -365,6 +382,43 @@ export default function GlobalExpansionDashboard() {
     }
 
     return payload.insight
+=======
+  const generateCountryInsights = async () => {
+    if (!workbookContext) {
+      setInsightError("Please upload an Excel or CSV file first.")
+      return
+    }
+
+    setIsGeneratingInsight(true)
+    setInsightError(null)
+
+    try {
+      const response = await fetch("/api/generate-country-insights", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          country: selectedCountry,
+          prebuiltWorkbookContext: workbookContext,
+        }),
+      })
+
+      const payload = (await response.json()) as { insight?: CountryInsightResult; error?: string }
+      if (!response.ok || !payload.insight) {
+        throw new Error(payload.error ?? "Failed to generate insight.")
+      }
+
+      setAiInsight(payload.insight)
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "An unknown error occurred while generating insight."
+      setInsightError(message)
+      setAiInsight(null)
+    } finally {
+      setIsGeneratingInsight(false)
+    }
+>>>>>>> dev
   }
 
   const getRiskLabel = (score: number) => {
@@ -693,6 +747,13 @@ export default function GlobalExpansionDashboard() {
               >
                 Download Report (PDF)
               </button>
+              <button
+                onClick={generateCountryInsights}
+                disabled={!workbookContext || isGeneratingInsight}
+                className="rounded-2xl border border-emerald-500 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isGeneratingInsight ? "Generating Insights..." : "Generate AI Insights"}
+              </button>
               {uploadedData && (
                 <button
                   onClick={clearUploadedData}
@@ -715,6 +776,109 @@ export default function GlobalExpansionDashboard() {
             </p>
           </div>
         </div>
+
+        {(aiInsight || insightError) && (
+          <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+            <h2 className="text-xl font-semibold text-slate-900">AI Country Insights</h2>
+            {insightError && (
+              <p className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+                {insightError}
+              </p>
+            )}
+            {aiInsight && (
+              <div className="mt-4 space-y-4 text-sm text-slate-700">
+                <p className="rounded-xl bg-slate-50 p-3">
+                  <span className="font-semibold text-slate-900">Executive summary:</span>{" "}
+                  {aiInsight.executive_summary}
+                </p>
+                <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-800">
+                  <span className="font-semibold">Confidence note:</span> {aiInsight.confidence_note}
+                </p>
+
+                <div className="rounded-xl border border-slate-200 p-4">
+                  <h3 className="font-semibold text-slate-900">1) Problem in Country</h3>
+                  <p className="mt-1 font-medium">{aiInsight.problem_in_country.title}</p>
+                  <p className="mt-1">{aiInsight.problem_in_country.summary}</p>
+                  {aiInsight.problem_in_country.evidence_from_file.length > 0 && (
+                    <ul className="mt-2 list-disc space-y-1 pl-5 text-slate-600">
+                      {aiInsight.problem_in_country.evidence_from_file.map((evidence) => (
+                        <li key={evidence}>{evidence}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="rounded-xl border border-slate-200 p-4">
+                    <h3 className="font-semibold text-slate-900">2) Development ideas</h3>
+                    <ul className="mt-2 space-y-2">
+                      {aiInsight.development_ideas.map((idea) => (
+                        <li key={idea.title} className="rounded-lg bg-slate-50 p-3">
+                          <p className="font-medium text-slate-900">{idea.title}</p>
+                          <p>{idea.rationale}</p>
+                          <p className="mt-1 text-slate-600">
+                            <span className="font-medium">Expected result:</span> {idea.expected_result}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="rounded-xl border border-slate-200 p-4">
+                    <h3 className="font-semibold text-slate-900">3) Existing projects</h3>
+                    <ul className="mt-2 space-y-2">
+                      {aiInsight.existing_projects.map((project) => (
+                        <li key={project.name} className="rounded-lg bg-slate-50 p-3">
+                          <p className="font-medium text-slate-900">{project.name}</p>
+                          <p>{project.description}</p>
+                          <p className="mt-1 text-slate-600">
+                            <span className="font-medium">Relevance:</span> {project.relevance}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 p-4">
+                  <h3 className="font-semibold text-slate-900">4) Intermediaries</h3>
+                  <ul className="mt-2 space-y-2">
+                    {aiInsight.intermediaries.map((intermediary) => (
+                      <li key={intermediary.name} className="rounded-lg bg-slate-50 p-3">
+                        <p className="font-medium text-slate-900">{intermediary.name}</p>
+                        <p>
+                          <span className="font-medium">Role:</span> {intermediary.role}
+                        </p>
+                        <p>
+                          <span className="font-medium">Why relevant:</span> {intermediary.why_relevant}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="rounded-xl border border-slate-200 p-4">
+                    <h3 className="font-semibold text-slate-900">5) Project barrier and stage</h3>
+                    <p className="mt-2"><span className="font-medium">Barrier:</span> {aiInsight.project_barrier_and_stage.barrier}</p>
+                    <p><span className="font-medium">Stage:</span> {aiInsight.project_barrier_and_stage.stage}</p>
+                    <p className="mt-1 text-slate-600">{aiInsight.project_barrier_and_stage.explanation}</p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 p-4">
+                    <h3 className="font-semibold text-slate-900">6) Recommended blended finance tool</h3>
+                    <p className="mt-2 font-medium">{aiInsight.recommended_blended_finance_tool.tool}</p>
+                    <p className="mt-1 text-slate-600">{aiInsight.recommended_blended_finance_tool.justification}</p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 p-4">
+                    <h3 className="font-semibold text-slate-900">7) Recommended global expansion option</h3>
+                    <p className="mt-2 font-medium">{aiInsight.recommended_global_expansion_option.option}</p>
+                    <p className="mt-1 text-slate-600">{aiInsight.recommended_global_expansion_option.justification}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Country and Strategy Selection - Same Row */}
         <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
