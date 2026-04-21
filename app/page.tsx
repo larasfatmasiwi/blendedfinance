@@ -28,6 +28,18 @@ type WebStrategy = {
   scores: DimensionScores
 }
 
+type CountryInsights = {
+  excelSummary: string
+  problemInCountry: string
+  developmentIdea1: string
+  developmentIdea2: string
+  existingProject: string
+  intermediaries: string
+  projectBarrierAndStage: string
+  recommendedBlendedFinanceTool: string
+  recommendedGlobalExpansionOption: string
+}
+
 // All countries in the world
 const allCountries = [
   "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda", "Argentina", "Armenia", "Australia", "Austria",
@@ -152,6 +164,7 @@ export default function GlobalExpansionDashboard() {
   const [strategies, setStrategies] = useState<WebStrategy[]>(defaultStrategies)
   const [selectedStrategies, setSelectedStrategies] = useState<string[]>(["Technical assistance / grants"])
   const [uploadedData, setUploadedData] = useState<Record<string, WebStrategy[]> | null>(null)
+  const [uploadedInsights, setUploadedInsights] = useState<Record<string, CountryInsights> | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const reportRef = useRef<HTMLDivElement>(null)
 
@@ -190,6 +203,7 @@ export default function GlobalExpansionDashboard() {
 
   const parseUploadedRows = (rows: string[][]) => {
     const parsed: Record<string, WebStrategy[]> = {}
+    const parsedInsights: Record<string, CountryInsights> = {}
     const colorMap: Record<string, string> = {
       "Technical assistance / grants": "#4f46e5",
       "Guarantee / risk-sharing": "#10b981",
@@ -199,20 +213,40 @@ export default function GlobalExpansionDashboard() {
       "Outcome-based incentives": "#0ea5e9",
     }
 
+    const headers = rows[0]?.map((cell) => String(cell).trim().toLowerCase()) ?? []
+    const getIndex = (...aliases: string[]) => headers.findIndex((header) => aliases.includes(header))
+    const getValue = (row: string[], ...aliases: string[]) => {
+      const index = getIndex(...aliases)
+      if (index < 0) return ""
+      return String(row[index] ?? "").trim()
+    }
+
+    const countryIndex = getIndex("country")
+    const strategyIndex = getIndex("strategy")
+    const barrierFitIndex = getIndex("barrier fit")
+    const mobilizationPotentialIndex = getIndex("mobilization potential")
+    const financialAdditionalityIndex = getIndex("financial additionality")
+    const developmentAdditionalityIndex = getIndex("development additionality")
+    const concessionalityDisciplineIndex = getIndex("concessionality discipline")
+    const implementationFeasibilityIndex = getIndex("implementation feasibility")
+    const resultsImpactMeasurabilityIndex = getIndex("results / impact measurability", "results impact measurability")
+
     // Skip header row and filter valid rows
-    const dataRows = rows.slice(1).filter((row) => row.length >= 9 && row[0])
+    const dataRows = rows
+      .slice(1)
+      .filter((row) => row.length >= 9 && countryIndex >= 0 && strategyIndex >= 0 && row[countryIndex] && row[strategyIndex])
 
     dataRows.forEach((row) => {
-      const country = String(row[0]).trim()
-      const strategyName = String(row[1]).trim()
+      const country = String(row[countryIndex]).trim()
+      const strategyName = String(row[strategyIndex]).trim()
       const scores: DimensionScores = {
-        barrier_fit: Number(row[2]) || 5,
-        mobilization_potential: Number(row[3]) || 5,
-        financial_additionality: Number(row[4]) || 5,
-        development_additionality: Number(row[5]) || 5,
-        concessionality_discipline: Number(row[6]) || 5,
-        implementation_feasibility: Number(row[7]) || 5,
-        results_impact_measurability: Number(row[8]) || 5,
+        barrier_fit: Number(row[barrierFitIndex]) || 5,
+        mobilization_potential: Number(row[mobilizationPotentialIndex]) || 5,
+        financial_additionality: Number(row[financialAdditionalityIndex]) || 5,
+        development_additionality: Number(row[developmentAdditionalityIndex]) || 5,
+        concessionality_discipline: Number(row[concessionalityDisciplineIndex]) || 5,
+        implementation_feasibility: Number(row[implementationFeasibilityIndex]) || 5,
+        results_impact_measurability: Number(row[resultsImpactMeasurabilityIndex]) || 5,
       }
 
       if (!parsed[country]) {
@@ -224,9 +258,26 @@ export default function GlobalExpansionDashboard() {
         color: colorMap[strategyName] || "#6b7280",
         scores,
       })
+
+      const countryInsight: CountryInsights = {
+        excelSummary: getValue(row, "excel summary", "summary of excel", "summary"),
+        problemInCountry: getValue(row, "problem in country", "country problem"),
+        developmentIdea1: getValue(row, "development idea 1", "development ideas 1"),
+        developmentIdea2: getValue(row, "development idea 2", "development ideas 2"),
+        existingProject: getValue(row, "existing project"),
+        intermediaries: getValue(row, "intermediaries"),
+        projectBarrierAndStage: getValue(row, "project barrier and stage", "project barrier & stage", "project barrier/stage"),
+        recommendedBlendedFinanceTool: getValue(row, "recommended blended finance tool"),
+        recommendedGlobalExpansionOption: getValue(row, "recommended global expansion option"),
+      }
+
+      const hasInsightContent = Object.values(countryInsight).some(Boolean)
+      if (hasInsightContent && !parsedInsights[country]) {
+        parsedInsights[country] = countryInsight
+      }
     })
 
-    return parsed
+    return { parsed, parsedInsights }
   }
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -253,7 +304,7 @@ export default function GlobalExpansionDashboard() {
         rows = text.split("\n").map((row) => row.split(",").map((cell) => cell.trim()))
       }
 
-      const parsed = parseUploadedRows(rows)
+      const { parsed, parsedInsights } = parseUploadedRows(rows)
 
       if (Object.keys(parsed).length === 0) {
         alert("No valid data found. Please check the file format.")
@@ -261,6 +312,7 @@ export default function GlobalExpansionDashboard() {
       }
 
       setUploadedData(parsed)
+      setUploadedInsights(Object.keys(parsedInsights).length > 0 ? parsedInsights : null)
       const firstCountry = Object.keys(parsed)[0]
       if (firstCountry) {
         setSelectedCountry(firstCountry)
@@ -275,6 +327,7 @@ export default function GlobalExpansionDashboard() {
 
   const clearUploadedData = () => {
     setUploadedData(null)
+    setUploadedInsights(null)
     setStrategies(defaultStrategies)
     setSelectedStrategies(["Technical assistance / grants"])
     if (fileInputRef.current) {
@@ -333,14 +386,33 @@ export default function GlobalExpansionDashboard() {
 
   const downloadTemplate = async () => {
     const XLSX = await import("xlsx")
-    const headers = ["Country", "Strategy", "Barrier fit", "Mobilization potential", "Financial additionality", "Development additionality", "Concessionality discipline", "Implementation feasibility", "Results / impact measurability"]
+    const headers = [
+      "Country",
+      "Strategy",
+      "Barrier fit",
+      "Mobilization potential",
+      "Financial additionality",
+      "Development additionality",
+      "Concessionality discipline",
+      "Implementation feasibility",
+      "Results / impact measurability",
+      "Excel summary",
+      "Problem in country",
+      "Development idea 1",
+      "Development idea 2",
+      "Existing project",
+      "Intermediaries",
+      "Project barrier and stage",
+      "Recommended blended finance tool",
+      "Recommended global expansion option",
+    ]
     const exampleRows = [
-      ["United States", "Technical assistance / grants", 8, 5, 7, 9, 6, 8, 7],
-      ["United States", "Guarantee / risk-sharing", 8, 9, 8, 6, 7, 7, 6],
-      ["United States", "First-loss / junior capital", 9, 9, 9, 7, 5, 5, 6],
-      ["United States", "Concessional loan", 7, 7, 7, 6, 6, 8, 7],
-      ["United States", "Hedging / local-currency facility", 8, 8, 8, 6, 7, 6, 7],
-      ["United States", "Outcome-based incentives", 7, 7, 8, 8, 7, 5, 9],
+      ["United States", "Technical assistance / grants", 8, 5, 7, 9, 6, 8, 7, "Grid resilience and EV charging dataset indicates financing gaps in secondary cities.", "Insufficient early-stage preparation capacity for municipal clean transport projects.", "Build a pooled project preparation facility for city-level transport projects.", "Create a results-based subsidy for EV bus fleet deployment.", "Federal transit electrification pilot with blended concessional support.", "Local commercial banks, municipal utilities, development finance institutions.", "Barrier: weak pipeline quality. Stage: concept and pre-feasibility.", "Technical assistance / grants", "Partner-led expansion to Canada and Mexico through regional city networks."],
+      ["United States", "Guarantee / risk-sharing", 8, 9, 8, 6, 7, 7, 6, "", "", "", "", "", "", "", "", ""],
+      ["United States", "First-loss / junior capital", 9, 9, 9, 7, 5, 5, 6, "", "", "", "", "", "", "", "", ""],
+      ["United States", "Concessional loan", 7, 7, 7, 6, 6, 8, 7, "", "", "", "", "", "", "", "", ""],
+      ["United States", "Hedging / local-currency facility", 8, 8, 8, 6, 7, 6, 7, "", "", "", "", "", "", "", "", ""],
+      ["United States", "Outcome-based incentives", 7, 7, 8, 8, 7, 5, 9, "", "", "", "", "", "", "", "", ""],
     ]
     
     const worksheet = XLSX.utils.aoa_to_sheet([headers, ...exampleRows])
@@ -388,6 +460,7 @@ export default function GlobalExpansionDashboard() {
     if (!reportRef.current) return
     
     const { bestStrategy, analysis } = generateSummaryAnalysis()
+    const countryInsight = uploadedInsights?.[selectedCountry]
     const chartSvg = reportRef.current.querySelector(".recharts-wrapper svg")
     let chartDataUrl = ""
     
@@ -457,6 +530,19 @@ export default function GlobalExpansionDashboard() {
             <h3>Executive Summary</h3>
             <p>This analysis compares <strong>${selectedStrategies.length} expansion ${selectedStrategies.length === 1 ? "strategy" : "strategies"}</strong> for <strong>${selectedCountry}</strong>.</p>
             ${bestStrategy ? `<p><strong>Recommended Strategy:</strong> ${bestStrategy.name} (Average Score: ${bestStrategy.average.toFixed(1)}/10)</p>` : ""}
+            ${countryInsight?.excelSummary ? `<p><strong>Excel Summary:</strong> ${countryInsight.excelSummary}</p>` : ""}
+            ${countryInsight ? `
+              <ul>
+                ${countryInsight.problemInCountry ? `<li><strong>Problem in Country:</strong> ${countryInsight.problemInCountry}</li>` : ""}
+                ${countryInsight.developmentIdea1 ? `<li><strong>Development Idea 1:</strong> ${countryInsight.developmentIdea1}</li>` : ""}
+                ${countryInsight.developmentIdea2 ? `<li><strong>Development Idea 2:</strong> ${countryInsight.developmentIdea2}</li>` : ""}
+                ${countryInsight.existingProject ? `<li><strong>Existing Project:</strong> ${countryInsight.existingProject}</li>` : ""}
+                ${countryInsight.intermediaries ? `<li><strong>Intermediaries:</strong> ${countryInsight.intermediaries}</li>` : ""}
+                ${countryInsight.projectBarrierAndStage ? `<li><strong>Project Barrier & Stage:</strong> ${countryInsight.projectBarrierAndStage}</li>` : ""}
+                ${countryInsight.recommendedBlendedFinanceTool ? `<li><strong>Recommended Blended Finance Tool:</strong> ${countryInsight.recommendedBlendedFinanceTool}</li>` : ""}
+                ${countryInsight.recommendedGlobalExpansionOption ? `<li><strong>Recommended Global Expansion Option:</strong> ${countryInsight.recommendedGlobalExpansionOption}</li>` : ""}
+              </ul>
+            ` : ""}
           </div>
           
           <h2>Strategy Analysis</h2>
@@ -577,7 +663,7 @@ export default function GlobalExpansionDashboard() {
           <div className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
             <p className="font-medium text-slate-700">Excel Format:</p>
             <p className="mt-1 font-mono text-xs">
-              Country, Strategy, Barrier fit, Mobilization potential, Financial additionality, Development additionality, Concessionality discipline, Implementation feasibility, Results / impact measurability
+              Country, Strategy, Barrier fit, Mobilization potential, Financial additionality, Development additionality, Concessionality discipline, Implementation feasibility, Results / impact measurability, Excel summary, Problem in country, Development idea 1, Development idea 2, Existing project, Intermediaries, Project barrier and stage, Recommended blended finance tool, Recommended global expansion option
             </p>
             <p className="mt-1 font-mono text-xs text-slate-500">
               Example: United States, Technical assistance / grants, 8, 5, 7, 9, 6, 8, 7
