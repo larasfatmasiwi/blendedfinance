@@ -11,6 +11,8 @@ import {
   Tooltip,
   Legend,
 } from "recharts"
+import type { CountryInsightResult } from "@/lib/insight-schema"
+import { buildWorkbookContext, type WorkbookContext } from "@/lib/build-workbook-context"
 
 type DimensionScores = {
   barrier_fit: number
@@ -165,6 +167,7 @@ export default function GlobalExpansionDashboard() {
   const [selectedStrategies, setSelectedStrategies] = useState<string[]>(["Technical assistance / grants"])
   const [uploadedData, setUploadedData] = useState<Record<string, WebStrategy[]> | null>(null)
   const [uploadedInsights, setUploadedInsights] = useState<Record<string, CountryInsights> | null>(null)
+  const [workbookContext, setWorkbookContext] = useState<WorkbookContext | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const reportRef = useRef<HTMLDivElement>(null)
 
@@ -289,19 +292,24 @@ export default function GlobalExpansionDashboard() {
 
     try {
       let rows: string[][] = []
+      let parsedWorkbookContext: WorkbookContext | null = null
 
       if (isExcel) {
         // Dynamic import xlsx library for Excel files
         const XLSX = await import("xlsx")
         const arrayBuffer = await file.arrayBuffer()
         const workbook = XLSX.read(arrayBuffer, { type: "array" })
-        const sheetName = workbook.SheetNames[0]
-        const sheet = workbook.Sheets[sheetName]
-        rows = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as string[][]
+        const sheetRows = workbook.SheetNames.map((sheetName) => ({
+          name: sheetName,
+          rows: XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1 }) as unknown[][],
+        }))
+        rows = (sheetRows[0]?.rows as string[][]) ?? []
+        parsedWorkbookContext = buildWorkbookContext(file.name, sheetRows)
       } else {
         // CSV parsing
         const text = await file.text()
         rows = text.split("\n").map((row) => row.split(",").map((cell) => cell.trim()))
+        parsedWorkbookContext = buildWorkbookContext(file.name, [{ name: "CSV", rows }])
       }
 
       const { parsed, parsedInsights } = parseUploadedRows(rows)
@@ -313,6 +321,7 @@ export default function GlobalExpansionDashboard() {
 
       setUploadedData(parsed)
       setUploadedInsights(Object.keys(parsedInsights).length > 0 ? parsedInsights : null)
+      setWorkbookContext(parsedWorkbookContext)
       const firstCountry = Object.keys(parsed)[0]
       if (firstCountry) {
         setSelectedCountry(firstCountry)
@@ -328,11 +337,34 @@ export default function GlobalExpansionDashboard() {
   const clearUploadedData = () => {
     setUploadedData(null)
     setUploadedInsights(null)
+    setWorkbookContext(null)
     setStrategies(defaultStrategies)
     setSelectedStrategies(["Technical assistance / grants"])
     if (fileInputRef.current) {
       fileInputRef.current.value = ""
     }
+  }
+
+  const fetchCountryInsights = async (): Promise<CountryInsightResult | null> => {
+    if (!workbookContext) return null
+
+    const response = await fetch("/api/generate-country-insights", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        country: selectedCountry,
+        prebuiltWorkbookContext: workbookContext,
+      }),
+    })
+
+    const payload = (await response.json()) as { insight?: CountryInsightResult; error?: string }
+    if (!response.ok || !payload.insight) {
+      throw new Error(payload.error ?? "Failed to generate insight.")
+    }
+
+    return payload.insight
   }
 
   const getRiskLabel = (score: number) => {
@@ -456,11 +488,22 @@ export default function GlobalExpansionDashboard() {
     return { bestStrategy, analysis }
   }
 
-  const downloadPDF = () => {
+  const downloadPDF = async () => {
     if (!reportRef.current) return
     
     const { bestStrategy, analysis } = generateSummaryAnalysis()
     const countryInsight = uploadedInsights?.[selectedCountry]
+    let generatedInsight: CountryInsightResult | null = null
+
+    try {
+      generatedInsight = await fetchCountryInsights()
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to generate AI executive summary."
+      console.error(message)
+      alert(`Continuing without AI executive summary: ${message}`)
+    }
+
     const chartSvg = reportRef.current.querySelector(".recharts-wrapper svg")
     let chartDataUrl = ""
     
@@ -530,7 +573,9 @@ export default function GlobalExpansionDashboard() {
             <h3>Executive Summary</h3>
             <p>This analysis compares <strong>${selectedStrategies.length} expansion ${selectedStrategies.length === 1 ? "strategy" : "strategies"}</strong> for <strong>${selectedCountry}</strong>.</p>
             ${bestStrategy ? `<p><strong>Recommended Strategy:</strong> ${bestStrategy.name} (Average Score: ${bestStrategy.average.toFixed(1)}/10)</p>` : ""}
-            ${countryInsight?.excelSummary ? `<p><strong>Excel Summary:</strong> ${countryInsight.excelSummary}</p>` : ""}
+            ${generatedInsight?.executive_summary ? `<p><strong>AI Executive Summary:</strong> ${generatedInsight.executive_summary}</p>` : ""}
+            ${generatedInsight?.confidence_note ? `<p><strong>AI Confidence Note:</strong> ${generatedInsight.confidence_note}</p>` : ""}
+            ${!generatedInsight?.executive_summary && countryInsight?.excelSummary ? `<p><strong>Excel Summary:</strong> ${countryInsight.excelSummary}</p>` : ""}
             ${countryInsight ? `
               <ul>
                 ${countryInsight.problemInCountry ? `<li><strong>Problem in Country:</strong> ${countryInsight.problemInCountry}</li>` : ""}
@@ -716,7 +761,6 @@ export default function GlobalExpansionDashboard() {
                         ? `${strategy.color}20`
                         : "#f1f5f9",
                       color: strategy.color,
-                      ringColor: strategy.color,
                     }}
                   >
                     <span
