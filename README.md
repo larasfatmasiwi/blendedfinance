@@ -1,34 +1,35 @@
-# Blended Finance refinement pack
+# v0-deploy-existing-code
 
-This pack keeps the existing app and adds an Excel-driven RPA workflow route at `/rpa`.
+This is a [Next.js](https://nextjs.org) project bootstrapped with [v0](https://v0.app).
 
-## What this changes
+## Built with v0
 
-- Parses the workbook as a 5-step model instead of a flat score row
-- Preserves Step 3 diagnosis narratives and evidence
-- Converts Step 4 into a structured blended-finance recommendation engine
-- Converts Step 5 into a structured global-expansion recommendation engine
-- Adds user-adjustable weighting so the recommendation logic stays transparent
+This repository is linked to a [v0](https://v0.app) project. You can continue developing by visiting the link below -- start new chats to make changes, and v0 will push commits directly to this repo. Every merge to `main` will automatically deploy.
 
-## Added/updated files
+[Continue working on v0 →](https://v0.app/chat/projects/prj_LVGTXuODCfQcElG4pWbojFaQiWSO)
 
-- `types/rpa.ts`
-- `lib/rpa-reference-data.ts`
-- `lib/rpa-scorecard-parser.ts`
-- `lib/rpa-recommendation-engine.ts`
-- `components/rpa-scorecard-dashboard.tsx`
-- `app/rpa/page.tsx`
+## Getting Started
 
-## Required package
-
-`xlsx` is already installed in this repo.
-
-## Local run
+First, run the development server:
 
 ```bash
 npm run dev
+# or
+yarn dev
+# or
+pnpm dev
 ```
 
-Open:
-- `/` for the existing dashboard
-- `/rpa` for the new RPA workflow dashboard
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+
+## Learn More
+
+To learn more, take a look at the following resources:
+
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- [v0 Documentation](https://v0.app/docs) - learn about v0 and how to use it.
+
+<a href="https://v0.app/chat/api/kiro/clone/larasfatmasiwi/v0-deploy-existing-code" alt="Open in Kiro"><img src="https://pdgvvgmkdvyeydso.public.blob.vercel-storage.com/open%20in%20kiro.svg?sanitize=true" /></a>
