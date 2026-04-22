@@ -2,20 +2,22 @@ export type Step1Assessment = {
   country: string
   sdgGoals?: string
   countryChallenges?: string
-  backgroundProblem?: string
+  backgroundInformation?: string
   existingProject?: string
   developmentRationale?: string
-  objectives?: string
+  expectedResults?: string
   safeguards?: string
   sources?: string
 }
 
 export type Step2Intermediary = {
   country: string
-  intermediary: string
+  projectContext?: string
+  intermediaryName: string
+  intermediaryDescription?: string
+  intermediaryRoleInProject?: string
   type?: string
-  role?: string
-  fit?: string
+  strategicFit?: string
   notes?: string
   sources?: string
 }
@@ -55,8 +57,8 @@ export type ExpansionIndicatorKey =
   | "cost"
   | "localOwnership"
   | "scalability"
-  | "capabilityTransfer"
-  | "implementationRisk"
+  | "capacityBuilding"
+  | "regulatoryFeasibility"
 
 export type ToolReference = {
   id: string

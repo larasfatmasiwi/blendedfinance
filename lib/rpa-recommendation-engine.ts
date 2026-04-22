@@ -35,8 +35,8 @@ export const DEFAULT_EXPANSION_WEIGHTS: IndicatorWeight<ExpansionIndicatorKey>[]
   { key: "cost", weight: 0.15 },
   { key: "localOwnership", weight: 0.2 },
   { key: "scalability", weight: 0.15 },
-  { key: "capabilityTransfer", weight: 0.15 },
-  { key: "implementationRisk", weight: 0.15 },
+  { key: "capacityBuilding", weight: 0.15 },
+  { key: "regulatoryFeasibility", weight: 0.15 },
 ]
 
 function normalizeToolName(value: string) {
@@ -128,7 +128,7 @@ export function recommendExpansionOptions(
   const intermediaryText = intermediaries
     .map(
       (item) =>
-        `${item.intermediary} ${item.type} ${item.role} ${item.fit} ${item.notes}`,
+        `${item.intermediaryName} ${item.type} ${item.intermediaryRoleInProject} ${item.strategicFit} ${item.notes}`,
     )
     .join(" ")
     .toLowerCase()
@@ -173,16 +173,6 @@ export function recommendExpansionOptions(
         bonus += 0.6
         reasons.push(
           "Improves delivery support where implementation capacity is weak",
-        )
-      }
-
-      if (
-        normalize(diagnosis.primaryBarrier).includes("social") &&
-        ["Deepen Local", "Local Hybrid"].includes(option.model)
-      ) {
-        bonus += 0.6
-        reasons.push(
-          "Higher local legitimacy helps socially oriented service-delivery models",
         )
       }
     })
